@@ -557,7 +557,45 @@ cargo check --workspace                             # Compile check only
 | mockall | 0.12 | dev-deps | Trait mocking |
 | tempfile | 3.x | dev-deps | Temp dirs for tests |
 
-## 10. Future Phases (Out of Scope)
+## 10. Internationalization (i18n)
+
+### 10.1 Launch Languages (Phase 1)
+
+| Language | Code | Rationale |
+|---|---|---|
+| English | `en` | Default, Silicon Valley AI ecosystem |
+| Simplified Chinese | `zh-CN` | China AI ecosystem, 2nd largest market |
+| French | `fr` | Europe francophone, Mistral AI ecosystem |
+
+### 10.2 Architecture Requirements
+
+- **12-language ready from day 1** — the i18n system must support adding new locales without code changes
+- **Automatic language detection** — detect OS locale at startup, fallback to `en`
+- **Community translations** — locale files in a standard format (JSON) that open-source contributors can add to
+- **Frontend i18n** — React side uses a lightweight library (`react-i18next` or equivalent) with namespace-based JSON files in `src/locales/{lang}/`
+- **Backend i18n** — Rust error messages and Tauri command responses remain in English (machine-consumed). Only UI-facing strings are translated.
+
+### 10.3 Locale File Structure
+
+```
+src/
+└── locales/
+    ├── en/
+    │   ├── common.json       # Shared UI strings
+    │   ├── chat.json         # Chat interface
+    │   ├── providers.json    # Provider management
+    │   └── settings.json     # Settings screens
+    ├── zh-CN/
+    │   └── (same structure)
+    └── fr/
+        └── (same structure)
+```
+
+### 10.4 Future Locale Expansion (post-Phase 1)
+
+Target 12 languages: en, zh-CN, fr, es, de, ja, ko, pt-BR, ru, ar, hi, it. Community PRs welcome via standard JSON locale files.
+
+## 11. Future Phases (Out of Scope)
 
 | Phase | Scope | New Crates |
 |---|---|---|
