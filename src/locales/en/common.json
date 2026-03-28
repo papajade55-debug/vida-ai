@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "Vida AI",
+    "loading": "Loading...",
+    "error": "An error occurred"
+  },
+  "auth": {
+    "enterPassword": "Enter your password",
+    "unlock": "Unlock",
+    "wrongPassword": "Wrong password",
+    "noPasswordSet": "No password configured"
+  },
+  "providers": {
+    "title": "Providers",
+    "noProviders": "No providers configured",
+    "addApiKey": "Add API Key",
+    "healthy": "Connected",
+    "unhealthy": "Unavailable"
+  },
+  "chat": {
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "newSession": "New Chat"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "changePassword": "Change Password",
+    "removePassword": "Remove Password"
+  }
+}

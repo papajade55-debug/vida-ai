@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "Vida AI",
+    "loading": "加载中...",
+    "error": "发生错误"
+  },
+  "auth": {
+    "enterPassword": "请输入密码",
+    "unlock": "解锁",
+    "wrongPassword": "密码错误",
+    "noPasswordSet": "未设置密码"
+  },
+  "providers": {
+    "title": "提供商",
+    "noProviders": "未配置提供商",
+    "addApiKey": "添加 API 密钥",
+    "healthy": "已连接",
+    "unhealthy": "不可用"
+  },
+  "chat": {
+    "placeholder": "输入消息...",
+    "send": "发送",
+    "newSession": "新对话"
+  },
+  "settings": {
+    "title": "设置",
+    "language": "语言",
+    "theme": "主题",
+    "changePassword": "修改密码",
+    "removePassword": "移除密码"
+  }
+}
