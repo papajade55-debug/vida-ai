@@ -1,0 +1,16 @@
+[package]
+name = "vida-security"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+thiserror = { workspace = true }
+serde = { workspace = true }
+keyring = "3"
+argon2 = "0.5"
+aes-gcm = "0.10"
+rand = "0.8"
+base64 = "0.22"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

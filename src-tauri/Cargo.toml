@@ -1,0 +1,7 @@
+[package]
+name = "vida-ai"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vida-core = { path = "../crates/vida-core" }
