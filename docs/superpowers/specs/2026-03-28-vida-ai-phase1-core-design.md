@@ -218,7 +218,9 @@ impl ProviderRegistry {
 
 **OllamaProvider:** HTTP client to `localhost:11434` (configurable). Uses `/api/chat` for completion, `/api/chat` with `stream: true` + SSE parsing for streaming, `/api/tags` for health_check and list_models. Vision via base64-encoded images in message content.
 
-**OpenAIProvider:** HTTP client to `api.openai.com` (configurable base_url for OpenAI-compatible APIs). Uses `/v1/chat/completions` for completion, SSE streaming with `stream: true`, `/v1/models` for list_models. API key retrieved from keychain at construction time.
+**OpenAIProvider:** HTTP client to `api.openai.com` (configurable base_url for **any OpenAI-compatible API** — Groq, Mistral, Together, LM Studio, vLLM, etc.). Uses `/v1/chat/completions` for completion, SSE streaming with `stream: true`, `/v1/models` for list_models. API key retrieved from keychain at construction time. This single provider covers dozens of services that expose OpenAI-compatible endpoints.
+
+**Future Providers (Phase 2+):** `AnthropicProvider` (Messages API), `GoogleProvider` (Gemini API). Each is a new file implementing `LLMProvider` — no changes to existing code. The architecture guarantees **zero vendor lock-in**: no SDK dependency, pure HTTP via `reqwest`.
 
 ### 3.6 Streaming Data Flow
 
@@ -272,6 +274,8 @@ impl PinManager {
 ```
 
 Argon2id parameters: m=65536, t=3, p=4. Random 16-byte salt stored alongside hash.
+
+**Password vs PIN:** The spec uses "PIN" but the UI will present it as a **password field** (alphanumeric, 4-32 characters, not limited to digits). The term "PIN" refers to the implementation pattern (local app lock, not a user account), but the UX allows full passwords. A **"Change password" option** is exposed in the Settings UI via the `set_pin` / `remove_pin` Tauri commands.
 
 ### 4.3 Boot Sequence
 
@@ -595,12 +599,49 @@ src/
 
 Target 12 languages: en, zh-CN, fr, es, de, ja, ko, pt-BR, ru, ar, hi, it. Community PRs welcome via standard JSON locale files.
 
-## 11. Future Phases (Out of Scope)
+## 11. Product Vision & Principles
 
-| Phase | Scope | New Crates |
+### 11.1 Core Principles
+
+- **Zero vendor lock-in:** No proprietary SDK. All provider communication via pure HTTP (`reqwest`). The `LLMProvider` trait is the only abstraction needed.
+- **Open source:** Project will be released under an open-source license (AGPLv3 or MIT, to be decided). All dependencies are open-source. No telemetry, no phoning home.
+- **Universal provider support:** Ollama (local), any OpenAI-compatible API (OpenAI, Groq, Mistral, Together, LM Studio, vLLM, Cerebras, NVIDIA NIM…), with dedicated providers for Anthropic and Google Gemini in Phase 2+.
+- **Multi-deployment:** Desktop (Linux .deb/.rpm/.AppImage, macOS .dmg, Windows .exe), LXC container (Proxmox), Docker, headless server mode.
+
+### 11.2 Full Feature Matrix — Phase Mapping
+
+| Feature | Phase | Details |
 |---|---|---|
-| 2 | UI/Design System + Chat | Frontend only (React components, Liquid Glass CSS) |
-| 3 | Team/Agent Engine | `vida-team` (multi-agent orchestration) |
-| 4 | Workspace Manager | `vida-workspace` (.vida/config.json, switching) |
-| 5 | MCP Integration | `vida-mcp` (process manager, tool routing, prompt rewriting) |
-| 6 | Remote Access | `vida-remote` (HTTP/WS server, Telegram bot) |
+| Provider abstraction (trait, no SDK) | **1** ✅ | `LLMProvider` trait + Ollama + OpenAI-compatible |
+| Additional providers (Anthropic, Google) | **2** | New files implementing `LLMProvider` |
+| Login screen + change password | **1** ✅ | PIN/password with Argon2id + Settings UI |
+| OS keychain for API keys | **1** ✅ | `keyring` crate, cross-platform |
+| Liquid Glass design system | **2** | React components, Framer Motion animations |
+| Chat interface + streaming | **2** | React UI consuming Tauri Events |
+| File import + drag & drop | **2** | Frontend file handling → backend processing |
+| Vision (image analysis) | **1** ✅ (backend) / **2** (UI) | `vision_completion` in trait; UI in Phase 2 |
+| Voice chat (Whisper.cpp) | **2** | Local speech-to-text, no cloud dependency |
+| Team creation (checkbox per model) | **3** | `vida-team` crate, multi-agent orchestration |
+| Sidebar agent list + activity animations | **3** | Agent state (Idle/Working/Error) → color pulse |
+| Workspace selector (.vida/config.json) | **4** | `vida-workspace` crate, directory-based |
+| Permission system (Yolo/Sandbox/Ask) | **4** | `vida-permissions` crate, per-workspace |
+| Permission bypass / total control | **4** | Granular: file write, shell exec, network scan |
+| MCP server management | **5** | `vida-mcp` crate, process spawning, tool routing |
+| MCP prompt rewriting (non-tool-calling models) | **5** | Adapter layer for models without native tool use |
+| Skills system | **5** | Integrated with MCP, per-workspace config |
+| Remote access (HTTP/WS server) | **6** | `vida-remote` crate, embedded server |
+| Telegram bot connector | **6** | Bot API integration for remote commands |
+| i18n (en, zh-CN, fr + 9 more) | **1** ✅ | react-i18next, JSON locale files, community PRs |
+| Packaging (.deb, .rpm, .AppImage, .dmg, .exe) | **6** | Tauri bundler + CI/CD |
+| LXC / Docker / headless deployment | **6** | Dockerfile + LXC script, server mode without GUI |
+| Open-source release | **6** | License, documentation, contribution guide |
+
+## 12. Future Phase Specs (to be written)
+
+| Phase | Spec | Status |
+|---|---|---|
+| 2 | UI/Design System + Chat + Vision UI + Voice | Pending |
+| 3 | Team/Agent Engine + Sidebar animations | Pending |
+| 4 | Workspace Manager + Permissions | Pending |
+| 5 | MCP Integration + Skills + Prompt Rewriting | Pending |
+| 6 | Remote Access + Packaging + Open-source release | Pending |
