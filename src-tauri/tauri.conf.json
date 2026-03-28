@@ -1,0 +1,30 @@
+{
+  "productName": "Vida AI",
+  "version": "0.1.0",
+  "identifier": "ai.vida.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:3000",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Vida AI",
+        "width": 1200,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  }
+}
