@@ -291,9 +291,13 @@ Code blocks: dark background (always), syntax highlighting, "Copy" button on hov
 ### 6.4 New Chat Flow
 
 1. User clicks "+" button in sidebar header
-2. Inline dropdown appears: provider selector → model selector
-3. Calls `useSessions.createSession(providerId, model)`
-4. New session added to sidebar, becomes active, chat area shows empty state
+2. Modal/dropdown appears with **two tabs**: "Single Model" and "Team"
+3. **"Single Model" tab (active):** provider selector → model selector → Create
+4. **"Team" tab (disabled, grayed out):** Shows "Coming in Phase 3" badge. Non-clickable.
+5. Calls `useSessions.createSession(providerId, model)`
+6. New session added to sidebar, becomes active, chat area shows empty state
+
+**Phase 3 preparation:** The `SessionRow` in the Zustand store includes an optional `team_id: string | null` field. The DB schema (Phase 1) doesn't need changes — `sessions.system_prompt` can store team config as JSON until a dedicated `teams` table is added in Phase 3. This avoids a DB migration later.
 
 ### 6.5 Empty State
 
