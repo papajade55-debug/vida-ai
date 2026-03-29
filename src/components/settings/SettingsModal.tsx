@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { X, Settings, Shield, Cpu } from "lucide-react";
+import { X, Settings, Shield, Cpu, FolderOpen } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/src/stores/store";
 import { GlassButton } from "@/src/design-system/GlassButton";
 import { GeneralSettings } from "./GeneralSettings";
 import { SecuritySettings } from "./SecuritySettings";
 import { ProviderSettings } from "./ProviderSettings";
+import { WorkspaceSettings } from "./WorkspaceSettings";
 
-type SettingsTab = "general" | "security" | "providers";
+type SettingsTab = "general" | "security" | "providers" | "workspace";
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: "general", label: "General", icon: Settings },
+  { id: "workspace", label: "Workspace", icon: FolderOpen },
   { id: "security", label: "Security", icon: Shield },
   { id: "providers", label: "Providers", icon: Cpu },
 ];
@@ -105,6 +107,7 @@ export function SettingsModal() {
               {/* Content */}
               <div className="flex-1 overflow-y-auto px-5 py-4">
                 {activeTab === "general" && <GeneralSettings />}
+                {activeTab === "workspace" && <WorkspaceSettings />}
                 {activeTab === "security" && <SecuritySettings />}
                 {activeTab === "providers" && <ProviderSettings />}
               </div>

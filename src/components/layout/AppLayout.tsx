@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/src/stores/store";
 import { Sidebar } from "./Sidebar";
+import { PermissionPopup } from "@/src/components/workspace/PermissionPopup";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -28,6 +29,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       <main className="flex-1 h-full overflow-hidden">
         {children}
       </main>
+      <PermissionPopup />
     </div>
   );
 }

@@ -5,6 +5,8 @@ import type {
   MessageRow,
   ProviderInfo,
   TeamRow,
+  WorkspaceConfig,
+  RecentWorkspaceRow,
 } from "@/src/lib/tauri";
 
 // ── State types ──
@@ -23,6 +25,12 @@ interface MessagesSlice {
 interface TeamsSlice {
   teams: TeamRow[];
   agentStreaming: Record<string, string>; // agent_id → accumulated content
+}
+
+interface WorkspaceSlice {
+  workspacePath: string | null;
+  workspaceConfig: WorkspaceConfig | null;
+  recentWorkspaces: RecentWorkspaceRow[];
 }
 
 interface ProvidersSlice {
@@ -65,6 +73,12 @@ interface TeamsActions {
   finishAllStreaming: () => void;
 }
 
+interface WorkspaceActions {
+  setWorkspacePath: (path: string | null) => void;
+  setWorkspaceConfig: (config: WorkspaceConfig | null) => void;
+  setRecentWorkspaces: (workspaces: RecentWorkspaceRow[]) => void;
+}
+
 interface ProvidersActions {
   setProviders: (providers: ProviderInfo[]) => void;
   setProviderHealth: (health: Record<string, boolean>) => void;
@@ -81,11 +95,13 @@ interface UiActions {
 type StoreState = SessionsSlice &
   MessagesSlice &
   TeamsSlice &
+  WorkspaceSlice &
   ProvidersSlice &
   UiSlice &
   SessionsActions &
   MessagesActions &
   TeamsActions &
+  WorkspaceActions &
   ProvidersActions &
   UiActions;
 
@@ -192,6 +208,15 @@ export const useStore = create<StoreState>()(
         }),
 
       finishAllStreaming: () => set({ agentStreaming: {} }),
+
+      // ── Workspace slice ──
+      workspacePath: null,
+      workspaceConfig: null,
+      recentWorkspaces: [],
+
+      setWorkspacePath: (path) => set({ workspacePath: path }),
+      setWorkspaceConfig: (config) => set({ workspaceConfig: config }),
+      setRecentWorkspaces: (workspaces) => set({ recentWorkspaces: workspaces }),
 
       // ── Providers slice ──
       providers: [],

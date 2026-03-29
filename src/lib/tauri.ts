@@ -74,6 +74,30 @@ export interface AppConfig {
   theme: string;
 }
 
+export type PermissionMode = "yolo" | "ask" | "sandbox";
+
+export interface PermissionConfig {
+  file_read: boolean;
+  file_write: boolean;
+  shell_execute: boolean;
+  network_access: boolean;
+}
+
+export interface WorkspaceConfig {
+  name: string;
+  default_provider: string | null;
+  default_model: string | null;
+  system_prompt: string | null;
+  permission_mode: PermissionMode;
+  permissions: PermissionConfig;
+}
+
+export interface RecentWorkspaceRow {
+  path: string;
+  name: string;
+  last_used: string;
+}
+
 // ── Typed invoke wrappers ──
 
 export const api = {
@@ -121,6 +145,22 @@ export const api = {
 
   // Config
   getConfig: () => invoke<AppConfig>("get_config"),
+
+  // Workspaces
+  openWorkspace: (path: string) =>
+    invoke<WorkspaceConfig>("open_workspace", { path }),
+  createWorkspace: (path: string, name: string) =>
+    invoke<WorkspaceConfig>("create_workspace", { path, name }),
+  listRecentWorkspaces: () =>
+    invoke<RecentWorkspaceRow[]>("list_recent_workspaces"),
+  getWorkspaceConfig: () =>
+    invoke<WorkspaceConfig>("get_workspace_config"),
+  setWorkspaceConfig: (config: WorkspaceConfig) =>
+    invoke<void>("set_workspace_config", { config }),
+  getPermissionMode: () =>
+    invoke<string>("get_permission_mode"),
+  setPermissionMode: (mode: PermissionMode) =>
+    invoke<void>("set_permission_mode", { mode }),
 };
 
 // ── Stream listener ──

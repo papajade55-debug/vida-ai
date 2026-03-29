@@ -6,6 +6,7 @@ import { SessionList } from "@/src/components/sidebar/SessionList";
 import { AgentList } from "@/src/components/sidebar/AgentList";
 import { TeamList } from "@/src/components/teams/TeamList";
 import { TeamCreator } from "@/src/components/teams/TeamCreator";
+import { WorkspaceSelector } from "@/src/components/workspace/WorkspaceSelector";
 import { useStore } from "@/src/stores/store";
 
 export function Sidebar() {
@@ -30,6 +31,9 @@ export function Sidebar() {
             />
           </div>
         </div>
+
+        {/* Workspace */}
+        <WorkspaceSelector />
 
         {/* Sessions */}
         <div className="flex-1 overflow-y-auto min-h-0">
