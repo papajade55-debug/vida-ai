@@ -4,7 +4,9 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use vida_db::{Database, MessageRow, SessionRow, TeamRow, TeamMemberRow, RecentWorkspaceRow};
+use vida_db::{Database, MessageRow, SessionRow, TeamRow, TeamMemberRow, RecentWorkspaceRow, McpServerConfigRow};
+
+use crate::mcp::{McpManager, McpTool, McpServerInfo, McpToolResult};
 use vida_providers::traits::*;
 use vida_providers::registry::ProviderRegistry;
 use vida_security::keychain::{SecretStore, KeychainManager, MockSecretStore};
@@ -46,6 +48,7 @@ pub struct VidaEngine {
     pub workspace_path: Option<String>,
     pub workspace_config: WorkspaceConfig,
     pub permission_manager: PermissionManager,
+    pub mcp_manager: McpManager,
 }
 
 impl VidaEngine {
@@ -78,11 +81,14 @@ impl VidaEngine {
             workspace_config.permissions.clone(),
         );
 
+        let mcp_manager = McpManager::new();
+
         Ok(Self {
             db, providers, secrets, config,
             workspace_path: None,
             workspace_config,
             permission_manager,
+            mcp_manager,
         })
     }
 
@@ -98,11 +104,13 @@ impl VidaEngine {
             workspace_config.permission_mode.clone(),
             workspace_config.permissions.clone(),
         );
+        let mcp_manager = McpManager::new();
         Ok(Self {
             db, providers, secrets, config,
             workspace_path: None,
             workspace_config,
             permission_manager,
+            mcp_manager,
         })
     }
 
@@ -519,6 +527,91 @@ impl VidaEngine {
     /// Check a permission against the current permission manager.
     pub fn check_permission(&self, perm: PermissionType) -> PermissionResult {
         self.permission_manager.check(perm)
+    }
+
+    // ── MCP ──
+
+    /// Start an MCP server by config name. Looks up the config in DB, spawns the process.
+    pub async fn start_mcp_server(&mut self, name: &str) -> Result<Vec<McpTool>, VidaError> {
+        // Find config in DB
+        let configs = self.db.list_mcp_servers(self.workspace_path.as_deref()).await?;
+        let config = configs.iter()
+            .find(|c| c.name == name)
+            .ok_or_else(|| VidaError::Config(format!("MCP server config not found: {}", name)))?;
+
+        let args: Vec<String> = config.args_json.as_ref()
+            .and_then(|j| serde_json::from_str(j).ok())
+            .unwrap_or_default();
+        let env: std::collections::HashMap<String, String> = config.env_json.as_ref()
+            .and_then(|j| serde_json::from_str(j).ok())
+            .unwrap_or_default();
+
+        self.mcp_manager.start_server(name, &config.command, &args, &env)
+            .map_err(|e| VidaError::Config(e.to_string()))
+    }
+
+    /// Stop a running MCP server.
+    pub fn stop_mcp_server(&mut self, name: &str) -> Result<(), VidaError> {
+        self.mcp_manager.stop_server(name)
+            .map_err(|e| VidaError::Config(e.to_string()))
+    }
+
+    /// List all MCP servers (from DB configs + running status).
+    pub async fn list_mcp_servers(&self) -> Result<Vec<McpServerInfo>, VidaError> {
+        let configs = self.db.list_mcp_servers(self.workspace_path.as_deref()).await?;
+        let running = self.mcp_manager.list_servers();
+        let running_map: std::collections::HashMap<String, &McpServerInfo> = running.iter()
+            .map(|s| (s.name.clone(), s))
+            .collect();
+
+        let mut servers = Vec::new();
+        for config in &configs {
+            if let Some(running_info) = running_map.get(&config.name) {
+                servers.push((*running_info).clone());
+            } else {
+                servers.push(McpServerInfo {
+                    name: config.name.clone(),
+                    command: config.command.clone(),
+                    running: false,
+                    tool_count: 0,
+                    tools: vec![],
+                });
+            }
+        }
+        Ok(servers)
+    }
+
+    /// List all tools from all running MCP servers.
+    pub fn list_mcp_tools(&self) -> Vec<McpTool> {
+        self.mcp_manager.list_tools()
+    }
+
+    /// Call an MCP tool by name.
+    pub fn call_mcp_tool(
+        &mut self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<McpToolResult, VidaError> {
+        self.mcp_manager.call_tool(tool_name, arguments)
+            .map_err(|e| VidaError::Config(e.to_string()))
+    }
+
+    /// Save an MCP server configuration to DB.
+    pub async fn save_mcp_server_config(&self, config: &McpServerConfigRow) -> Result<(), VidaError> {
+        self.db.upsert_mcp_server(config).await?;
+        Ok(())
+    }
+
+    /// Delete an MCP server configuration from DB.
+    pub async fn delete_mcp_server_config(&mut self, id: &str) -> Result<(), VidaError> {
+        // Also stop if running
+        if let Some(config) = self.db.get_mcp_server(id).await? {
+            if self.mcp_manager.is_running(&config.name) {
+                let _ = self.mcp_manager.stop_server(&config.name);
+            }
+        }
+        self.db.delete_mcp_server(id).await?;
+        Ok(())
     }
 
     /// Send a message to ALL team members in parallel.

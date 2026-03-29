@@ -1,6 +1,7 @@
 use vida_db::DbError;
 use vida_providers::traits::ProviderError;
 use vida_security::SecurityError;
+use crate::mcp::McpError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VidaError {
@@ -10,6 +11,8 @@ pub enum VidaError {
     Security(#[from] SecurityError),
     #[error("Database: {0}")]
     Database(#[from] DbError),
+    #[error("MCP: {0}")]
+    Mcp(#[from] McpError),
     #[error("Session not found: {0}")]
     SessionNotFound(String),
     #[error("Provider not found: {0}")]
