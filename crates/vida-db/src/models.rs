@@ -55,3 +55,10 @@ pub struct TeamMemberRow {
     pub role: Option<String>,
     pub created_at: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct RecentWorkspaceRow {
+    pub path: String,
+    pub name: String,
+    pub last_used: String,
+}

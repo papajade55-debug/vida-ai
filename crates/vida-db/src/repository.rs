@@ -251,6 +251,38 @@ impl Database {
             .await?;
         Ok(())
     }
+
+    // ── Workspaces ──
+
+    pub async fn add_recent_workspace(&self, path: &str, name: &str) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO recent_workspaces (path, name, last_used) VALUES (?, ?, datetime('now'))
+             ON CONFLICT(path) DO UPDATE SET name = excluded.name, last_used = datetime('now')"
+        )
+        .bind(path)
+        .bind(name)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_recent_workspaces(&self, limit: u32) -> Result<Vec<RecentWorkspaceRow>, DbError> {
+        let rows = sqlx::query_as::<_, RecentWorkspaceRow>(
+            "SELECT * FROM recent_workspaces ORDER BY last_used DESC LIMIT ?"
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn remove_recent_workspace(&self, path: &str) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM recent_workspaces WHERE path = ?")
+            .bind(path)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -566,6 +598,53 @@ mod tests {
 
         let fetched = db.get_session("sess-team").await.unwrap().unwrap();
         assert_eq!(fetched.team_id, Some("team-1".to_string()));
+    }
+
+    // ── Workspace Tests ──
+
+    #[tokio::test]
+    async fn test_workspace_add_and_list() {
+        let db = setup_db().await;
+        db.add_recent_workspace("/home/user/project-a", "Project A").await.unwrap();
+        db.add_recent_workspace("/home/user/project-b", "Project B").await.unwrap();
+
+        let workspaces = db.list_recent_workspaces(10).await.unwrap();
+        assert_eq!(workspaces.len(), 2);
+        let names: Vec<&str> = workspaces.iter().map(|w| w.name.as_str()).collect();
+        assert!(names.contains(&"Project A"));
+        assert!(names.contains(&"Project B"));
+    }
+
+    #[tokio::test]
+    async fn test_workspace_upsert() {
+        let db = setup_db().await;
+        db.add_recent_workspace("/home/user/project", "Old Name").await.unwrap();
+        db.add_recent_workspace("/home/user/project", "New Name").await.unwrap();
+
+        let workspaces = db.list_recent_workspaces(10).await.unwrap();
+        assert_eq!(workspaces.len(), 1);
+        assert_eq!(workspaces[0].name, "New Name");
+    }
+
+    #[tokio::test]
+    async fn test_workspace_remove() {
+        let db = setup_db().await;
+        db.add_recent_workspace("/home/user/project", "Project").await.unwrap();
+        db.remove_recent_workspace("/home/user/project").await.unwrap();
+
+        let workspaces = db.list_recent_workspaces(10).await.unwrap();
+        assert!(workspaces.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_workspace_list_limit() {
+        let db = setup_db().await;
+        for i in 0..5 {
+            db.add_recent_workspace(&format!("/path/{}", i), &format!("Project {}", i)).await.unwrap();
+        }
+
+        let workspaces = db.list_recent_workspaces(3).await.unwrap();
+        assert_eq!(workspaces.len(), 3);
     }
 
     #[tokio::test]
