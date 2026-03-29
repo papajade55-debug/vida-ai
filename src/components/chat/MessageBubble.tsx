@@ -82,10 +82,19 @@ export const MessageBubble = memo(
   function MessageBubble({ message }: MessageBubbleProps) {
     const streamingMessageId = useStore((s) => s.streamingMessageId);
     const streamingContent = useStore((s) => s.streamingContent);
+    const agentStreaming = useStore((s) => s.agentStreaming);
 
     const isUser = message.role === "user";
-    const isStreaming = message.id === streamingMessageId;
-    const displayContent = isStreaming ? streamingContent : message.content;
+    const isSoloStreaming = message.id === streamingMessageId;
+    const isAgentStreaming = message.agent_id !== null && message.agent_id in agentStreaming;
+    const isStreaming = isSoloStreaming || isAgentStreaming;
+
+    let displayContent = message.content;
+    if (isSoloStreaming) {
+      displayContent = streamingContent;
+    } else if (isAgentStreaming && message.agent_id) {
+      displayContent = agentStreaming[message.agent_id];
+    }
 
     const time = useMemo(() => formatTime(message.created_at), [message.created_at]);
 
@@ -101,9 +110,29 @@ export const MessageBubble = memo(
     }
 
     // Assistant
+    const agentName = message.agent_name;
+    const agentColor = message.agent_color;
+
     return (
       <div className="msg-row msg-row--assistant">
         <div className="msg-bubble msg-bubble--assistant">
+          {agentName && agentColor && (
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 -mx-4 -mt-3 mb-2 rounded-t-[var(--radius)]"
+              style={{
+                background: `${agentColor}14`,
+                borderBottom: `1px solid ${agentColor}30`,
+              }}
+            >
+              <span
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: agentColor }}
+              />
+              <span className="text-xs font-medium" style={{ color: agentColor }}>
+                {agentName}
+              </span>
+            </div>
+          )}
           <div className="msg-markdown">
             <ReactMarkdown
               rehypePlugins={rehypePlugins}

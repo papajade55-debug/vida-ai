@@ -6,6 +6,10 @@ import { ChatInput } from "./ChatInput";
 
 export function ChatArea() {
   const currentSessionId = useStore((s) => s.currentSessionId);
+  const sessions = useStore((s) => s.sessions);
+
+  const currentSession = sessions.find((s) => s.id === currentSessionId);
+  const isTeamSession = currentSession?.team_id != null;
 
   if (!currentSessionId) {
     return (
@@ -27,7 +31,7 @@ export function ChatArea() {
     <GlassPanel className="h-full flex flex-col overflow-hidden" padding="p-0">
       <ChatHeader />
       <MessageList />
-      <ChatInput />
+      <ChatInput isTeamSession={isTeamSession} teamId={currentSession?.team_id ?? null} />
     </GlassPanel>
   );
 }

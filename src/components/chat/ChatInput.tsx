@@ -1,19 +1,47 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Send, Square } from "lucide-react";
 import { GlassInput } from "@/src/design-system/GlassInput";
 import { GlassButton } from "@/src/design-system/GlassButton";
 import { useStreamCompletion } from "@/src/hooks/useStreamCompletion";
+import { useTeamStreamCompletion } from "@/src/hooks/useTeamStreamCompletion";
 import { useTranslation } from "react-i18next";
+import { api } from "@/src/lib/tauri";
+import type { TeamMemberRow } from "@/src/lib/tauri";
 
-export function ChatInput() {
+interface ChatInputProps {
+  isTeamSession?: boolean;
+  teamId?: string | null;
+}
+
+export function ChatInput({ isTeamSession = false, teamId = null }: ChatInputProps) {
   const [input, setInput] = useState("");
+  const [teamMembers, setTeamMembers] = useState<TeamMemberRow[]>([]);
   const { sendMessage, isStreaming } = useStreamCompletion();
+  const { sendTeamMessage, isTeamStreaming } = useTeamStreamCompletion();
   const { t } = useTranslation();
+
+  const busy = isStreaming || isTeamStreaming;
+
+  // Load team members when in team mode
+  useEffect(() => {
+    if (isTeamSession && teamId) {
+      api.getTeam(teamId).then(([, members]) => {
+        setTeamMembers(members);
+      }).catch(console.error);
+    } else {
+      setTeamMembers([]);
+    }
+  }, [isTeamSession, teamId]);
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || isStreaming) return;
-    sendMessage(trimmed);
+    if (!trimmed || busy) return;
+
+    if (isTeamSession && teamMembers.length > 0) {
+      sendTeamMessage(trimmed, teamMembers);
+    } else {
+      sendMessage(trimmed);
+    }
     setInput("");
   };
 
@@ -26,10 +54,10 @@ export function ChatInput() {
           placeholder={t("chat.placeholder")}
           multiline
           onSubmit={handleSend}
-          disabled={isStreaming}
+          disabled={busy}
         />
       </div>
-      {isStreaming ? (
+      {busy ? (
         <GlassButton variant="secondary" icon={<Square size={18} />} title="Stop" />
       ) : (
         <GlassButton

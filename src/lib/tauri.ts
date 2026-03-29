@@ -17,6 +17,7 @@ export interface SessionRow {
   system_prompt: string | null;
   created_at: string;
   updated_at: string;
+  team_id: string | null;
 }
 
 export interface MessageRow {
