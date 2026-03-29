@@ -31,6 +31,12 @@ fn main() {
             commands::chat::get_messages,
             commands::chat::delete_session,
             commands::config::get_config,
+            commands::teams::create_team,
+            commands::teams::list_teams,
+            commands::teams::get_team,
+            commands::teams::delete_team,
+            commands::teams::create_team_session,
+            commands::teams::stream_team_completion,
         ])
         .run(tauri::generate_context!())
         .expect("error while running vida-ai");
