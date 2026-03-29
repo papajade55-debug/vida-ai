@@ -12,6 +12,7 @@ uuid = { workspace = true }
 vida-providers = { path = "../vida-providers" }
 vida-security = { path = "../vida-security" }
 vida-db = { path = "../vida-db" }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
 
 [dev-dependencies]
 async-trait = { workspace = true }
