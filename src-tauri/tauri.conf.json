@@ -4,8 +4,8 @@
   "identifier": "ai.vida.app",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:3333",
+    "beforeDevCommand": "npm run dev -- --port 3333",
     "beforeBuildCommand": "npm run build"
   },
   "app": {
