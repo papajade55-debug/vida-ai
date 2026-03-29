@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Settings, Shield, Cpu, FolderOpen, Plug } from "lucide-react";
+import { X, Settings, Shield, Cpu, FolderOpen, Plug, Wifi } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useStore } from "@/src/stores/store";
 import { GlassButton } from "@/src/design-system/GlassButton";
@@ -8,8 +8,9 @@ import { SecuritySettings } from "./SecuritySettings";
 import { ProviderSettings } from "./ProviderSettings";
 import { WorkspaceSettings } from "./WorkspaceSettings";
 import { McpPanel } from "@/src/components/mcp/McpPanel";
+import { RemoteSettings } from "./RemoteSettings";
 
-type SettingsTab = "general" | "security" | "providers" | "workspace" | "mcp";
+type SettingsTab = "general" | "security" | "providers" | "workspace" | "mcp" | "remote";
 
 const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: "general", label: "General", icon: Settings },
@@ -17,6 +18,7 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Settings }[] = [
   { id: "security", label: "Security", icon: Shield },
   { id: "providers", label: "Providers", icon: Cpu },
   { id: "mcp", label: "MCP", icon: Plug },
+  { id: "remote", label: "Remote", icon: Wifi },
 ];
 
 export function SettingsModal() {
@@ -113,6 +115,7 @@ export function SettingsModal() {
                 {activeTab === "security" && <SecuritySettings />}
                 {activeTab === "providers" && <ProviderSettings />}
                 {activeTab === "mcp" && <McpPanel />}
+                {activeTab === "remote" && <RemoteSettings />}
               </div>
             </div>
           </motion.div>
