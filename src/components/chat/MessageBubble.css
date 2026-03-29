@@ -1,0 +1,181 @@
+/* ── Message row alignment ── */
+
+.msg-row {
+  display: flex;
+  padding: 0.25rem 1rem;
+}
+
+.msg-row--user {
+  justify-content: flex-end;
+}
+
+.msg-row--assistant {
+  justify-content: flex-start;
+}
+
+/* ── Bubble base ── */
+
+.msg-bubble {
+  max-width: 75%;
+  padding: 0.75rem 1rem;
+  position: relative;
+  word-break: break-word;
+}
+
+.msg-bubble--user {
+  background: var(--msg-user-bg);
+  color: var(--msg-user-text);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-lg);
+}
+
+.msg-bubble--assistant {
+  background: var(--msg-assistant-bg);
+  color: var(--msg-assistant-text);
+  border: 1px solid var(--msg-assistant-border);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) var(--radius-sm);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ── User text ── */
+
+.msg-bubble--user .msg-text {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+/* ── Assistant markdown ── */
+
+.msg-markdown {
+  line-height: 1.6;
+}
+
+.msg-markdown > :first-child {
+  margin-top: 0;
+}
+
+.msg-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.msg-markdown p {
+  margin: 0.5em 0;
+}
+
+.msg-markdown ul,
+.msg-markdown ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.msg-markdown table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.875em;
+}
+
+.msg-markdown th,
+.msg-markdown td {
+  border: 1px solid var(--msg-assistant-border);
+  padding: 0.4em 0.75em;
+}
+
+.msg-markdown th {
+  background: var(--accent-subtle);
+  font-weight: 600;
+}
+
+.msg-markdown blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0.5em 0;
+  padding: 0.25em 0.75em;
+  color: var(--text-secondary);
+}
+
+/* ── Code blocks — always dark ── */
+
+.code-block-wrapper {
+  position: relative;
+  margin: 0.5em 0;
+}
+
+.code-block-wrapper pre {
+  margin: 0;
+}
+
+.code-block-wrapper pre code.hljs {
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+/* ── Copy button ── */
+
+.code-block-wrapper .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cdd6f4;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  z-index: 2;
+}
+
+.code-block-wrapper:hover .copy-btn {
+  opacity: 1;
+}
+
+.code-block-wrapper .copy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Streaming cursor ── */
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  background: var(--status-streaming);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Timestamp ── */
+
+.msg-time {
+  display: block;
+  font-size: 0.6875rem;
+  margin-top: 0.35rem;
+  opacity: 0.5;
+}
+
+.msg-time--user {
+  text-align: right;
+  color: var(--msg-user-text);
+}
+
+.msg-time--assistant {
+  text-align: left;
+  color: var(--text-muted);
+}
