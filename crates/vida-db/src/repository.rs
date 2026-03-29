@@ -345,6 +345,27 @@ impl Database {
             .await?;
         Ok(())
     }
+
+    // ── Provider configs (for FK constraints) ──
+
+    pub async fn ensure_provider_config(
+        &self,
+        id: &str,
+        provider_type: &str,
+        base_url: Option<&str>,
+        default_model: Option<&str>,
+    ) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT OR IGNORE INTO provider_configs (id, provider_type, base_url, default_model, enabled) VALUES (?, ?, ?, ?, 1)"
+        )
+        .bind(id)
+        .bind(provider_type)
+        .bind(base_url)
+        .bind(default_model)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

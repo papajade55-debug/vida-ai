@@ -96,14 +96,18 @@ export function ChatArea() {
   const setCurrentSession = useStore((s) => s.setCurrentSession);
   const setMessages = useStore((s) => s.setMessages);
 
+  const [chatError, setChatError] = useState<string | null>(null);
+
   const handleStartChat = async () => {
+    setChatError("Creating session...");
     try {
       const session = await api.createSession("ollama", "qwen3:14b");
       addSession(session);
       setCurrentSession(session.id);
       setMessages(session.id, []);
-    } catch (e) {
-      console.error("Failed to create session:", e);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setChatError("Error: " + msg);
     }
   };
 
@@ -125,6 +129,11 @@ export function ChatArea() {
           >
             New Chat
           </GlassButton>
+          {chatError && (
+            <div className="mt-3 text-xs px-3 py-2 rounded-lg max-w-md" style={{ background: "rgba(239,68,68,0.15)", color: "var(--status-error)" }}>
+              {chatError}
+            </div>
+          )}
         </div>
       </div>
     );

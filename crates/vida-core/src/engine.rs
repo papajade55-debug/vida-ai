@@ -9,6 +9,7 @@ use vida_db::{Database, MessageRow, SessionRow, TeamRow, TeamMemberRow, RecentWo
 use crate::mcp::{McpManager, McpTool, McpServerInfo, McpToolResult};
 use vida_providers::traits::*;
 use vida_providers::registry::ProviderRegistry;
+use vida_providers::ollama::OllamaProvider;
 use vida_security::keychain::{SecretStore, KeychainManager, MockSecretStore};
 
 use crate::config::AppConfig;
@@ -74,7 +75,15 @@ impl VidaEngine {
             None => AppConfig::default(),
         };
 
-        let providers = ProviderRegistry::new();
+        let mut providers = ProviderRegistry::new();
+
+        // Register default providers
+        let ollama = Arc::new(OllamaProvider::new("http://localhost:11434"));
+        let _ = providers.add("ollama".to_string(), ollama);
+
+        // Ensure provider_configs rows exist in DB for FK constraints
+        let _ = db.ensure_provider_config("ollama", "local", Some("http://localhost:11434"), Some("qwen3:14b")).await;
+
         let workspace_config = WorkspaceConfig::default();
         let permission_manager = PermissionManager::new(
             workspace_config.permission_mode.clone(),
