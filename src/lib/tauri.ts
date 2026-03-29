@@ -215,6 +215,13 @@ export const api = {
     invoke<string>("get_permission_mode"),
   setPermissionMode: (mode: PermissionMode) =>
     invoke<void>("set_permission_mode", { mode }),
+
+  // Remote
+  enableRemote: (port: number) => invoke<void>("enable_remote", { port }),
+  disableRemote: () => invoke<void>("disable_remote"),
+  getRemoteStatus: () => invoke<{ running: boolean; port: number | null }>("get_remote_status"),
+  getRemoteToken: () => invoke<string>("get_remote_token"),
+  regenerateRemoteToken: () => invoke<string>("regenerate_remote_token"),
 };
 
 // ── Stream listener ──

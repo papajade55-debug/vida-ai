@@ -1,19 +1,17 @@
 import { useState } from "react";
 import { Plus, RefreshCw, Plug } from "lucide-react";
 import { GlassButton } from "@/src/design-system/GlassButton";
-import { GlassInput } from "@/src/design-system/GlassInput";
 import { useMcp } from "@/src/hooks/useMcp";
 import { McpServerCard } from "./McpServerCard";
-import type { McpServerConfigRow } from "@/src/lib/tauri";
+import { McpConfigModal } from "./McpConfigModal";
+import type { McpServerConfigRow, McpServerInfo } from "@/src/lib/tauri";
 
 export function McpPanel() {
   const { mcpServers, startServer, stopServer, saveConfig, deleteConfig, refreshServers } =
     useMcp();
   const [loading, setLoading] = useState(false);
-  const [showAdd, setShowAdd] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newCommand, setNewCommand] = useState("");
-  const [newArgs, setNewArgs] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editingServer, setEditingServer] = useState<McpServerConfigRow | null>(null);
 
   const handleStart = async (name: string) => {
     setLoading(true);
@@ -36,12 +34,8 @@ export function McpPanel() {
   };
 
   const handleDelete = async (name: string) => {
-    const server = mcpServers.find((s) => s.name === name);
-    if (!server) return;
     setLoading(true);
     try {
-      // Find the config ID - use the name as lookup
-      // We'll delete by finding the server then calling deleteConfig
       await deleteConfig(name);
     } catch {
       // error already logged in hook
@@ -49,33 +43,29 @@ export function McpPanel() {
     setLoading(false);
   };
 
-  const handleAdd = async () => {
-    if (!newName.trim() || !newCommand.trim()) return;
-    setLoading(true);
-    try {
-      const id = `mcp-${Date.now()}`;
-      const argsJson = newArgs.trim()
-        ? JSON.stringify(newArgs.split(" ").filter(Boolean))
-        : null;
-      const config: McpServerConfigRow = {
-        id,
-        workspace_path: null,
-        name: newName.trim(),
-        command: newCommand.trim(),
-        args_json: argsJson,
-        env_json: null,
-        enabled: 1,
-        created_at: "",
-      };
-      await saveConfig(config);
-      setNewName("");
-      setNewCommand("");
-      setNewArgs("");
-      setShowAdd(false);
-    } catch {
-      // error already logged in hook
-    }
-    setLoading(false);
+  const handleEdit = (server: McpServerInfo) => {
+    // Build a McpServerConfigRow from the McpServerInfo for editing
+    const config: McpServerConfigRow = {
+      id: `mcp-${server.name}`,
+      workspace_path: null,
+      name: server.name,
+      command: server.command,
+      args_json: null,
+      env_json: null,
+      enabled: 1,
+      created_at: "",
+    };
+    setEditingServer(config);
+    setModalOpen(true);
+  };
+
+  const handleSave = async (config: McpServerConfigRow) => {
+    await saveConfig(config);
+  };
+
+  const openAddModal = () => {
+    setEditingServer(null);
+    setModalOpen(true);
   };
 
   return (
@@ -108,54 +98,12 @@ export function McpPanel() {
           <GlassButton
             variant="ghost"
             icon={<Plus size={14} />}
-            onClick={() => setShowAdd(!showAdd)}
+            onClick={openAddModal}
             className="!px-2 !py-1"
             title="Add server"
           />
         </div>
       </div>
-
-      {/* Add form */}
-      {showAdd && (
-        <div
-          className="space-y-2 p-3 rounded-[var(--radius)]"
-          style={{
-            background: "var(--glass-bg)",
-            border: "1px solid var(--glass-border)",
-          }}
-        >
-          <GlassInput
-            placeholder="Server name (e.g. filesystem)"
-            value={newName}
-            onChange={(v) => setNewName(v)}
-          />
-          <GlassInput
-            placeholder="Command (e.g. npx)"
-            value={newCommand}
-            onChange={(v) => setNewCommand(v)}
-          />
-          <GlassInput
-            placeholder="Args (space-separated, e.g. -y @modelcontextprotocol/server-filesystem /tmp)"
-            value={newArgs}
-            onChange={(v) => setNewArgs(v)}
-          />
-          <div className="flex gap-2 justify-end">
-            <GlassButton
-              variant="ghost"
-              onClick={() => setShowAdd(false)}
-            >
-              Cancel
-            </GlassButton>
-            <GlassButton
-              variant="primary"
-              onClick={handleAdd}
-              disabled={loading || !newName.trim() || !newCommand.trim()}
-            >
-              Add
-            </GlassButton>
-          </div>
-        </div>
-      )}
 
       {/* Server list */}
       <div className="space-y-2">
@@ -174,11 +122,20 @@ export function McpPanel() {
               onStart={handleStart}
               onStop={handleStop}
               onDelete={handleDelete}
+              onEdit={handleEdit}
               loading={loading}
             />
           ))
         )}
       </div>
+
+      {/* Add/Edit Modal */}
+      <McpConfigModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+        existing={editingServer}
+      />
     </div>
   );
 }

@@ -16,3 +16,6 @@ src-tauri/target/
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+# Local assistant/editor settings
+.claude/

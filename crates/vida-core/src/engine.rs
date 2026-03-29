@@ -602,6 +602,20 @@ impl VidaEngine {
         Ok(())
     }
 
+    // ── Remote Server ──
+
+    /// Generate a new remote API token and store it in the secret store.
+    pub fn generate_remote_token(&self) -> Result<String, VidaError> {
+        let token = crate::remote::generate_token();
+        self.secrets.store("remote-api-token", &token)?;
+        Ok(token)
+    }
+
+    /// Get the current remote API token from the secret store.
+    pub fn get_remote_token(&self) -> Result<String, VidaError> {
+        Ok(self.secrets.get("remote-api-token")?)
+    }
+
     /// Delete an MCP server configuration from DB.
     pub async fn delete_mcp_server_config(&mut self, id: &str) -> Result<(), VidaError> {
         // Also stop if running

@@ -3,6 +3,11 @@ name = "vida-ai"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+remote = ["vida-core/remote"]
+telegram = ["vida-core/telegram", "remote"]
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tokio = { workspace = true }

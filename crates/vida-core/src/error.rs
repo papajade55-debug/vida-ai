@@ -19,6 +19,8 @@ pub enum VidaError {
     ProviderNotFound(String),
     #[error("Config: {0}")]
     Config(String),
+    #[error("Remote: {0}")]
+    Remote(String),
 }
 
 // Serialize for Tauri commands

@@ -7,10 +7,90 @@ use tauri::Manager;
 use tokio::sync::RwLock;
 use vida_core::VidaEngine;
 
+/// Check if `--headless` was passed on the command line.
+fn is_headless() -> bool {
+    std::env::args().any(|arg| arg == "--headless")
+}
+
+/// Run Vida AI in headless mode (HTTP/WS server only, no GUI).
+#[cfg(feature = "remote")]
+async fn run_headless() {
+    use vida_core::{RemoteServer, generate_token};
+
+    let port: u16 = std::env::var("VIDA_PORT")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3690);
+
+    let data_dir = std::env::var("VIDA_DATA_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+            std::path::PathBuf::from(home).join(".vida-ai")
+        });
+
+    eprintln!("Vida AI — Headless Mode");
+    eprintln!("  Data dir: {}", data_dir.display());
+    eprintln!("  Port:     {}", port);
+
+    let engine = VidaEngine::init(&data_dir)
+        .await
+        .expect("Failed to initialize VidaEngine");
+
+    // Generate or retrieve token
+    let token = engine
+        .get_remote_token()
+        .unwrap_or_else(|_| {
+            let t = generate_token();
+            eprintln!("  Token:    {}", t);
+            // Persist token to a file for convenience
+            let token_path = data_dir.join(".token");
+            let _ = std::fs::write(&token_path, &t);
+            t
+        });
+
+    eprintln!("  Token:    {}…{}", &token[..8], &token[token.len()-4..]);
+    eprintln!("  Health:   http://0.0.0.0:{}/api/health", port);
+    eprintln!();
+
+    let engine_arc = Arc::new(RwLock::new(engine));
+    let mut server = RemoteServer::new(port);
+    server
+        .start(engine_arc.clone(), token)
+        .await
+        .expect("Failed to start remote server");
+
+    // Keep running until SIGTERM / Ctrl-C
+    tokio::signal::ctrl_c()
+        .await
+        .expect("Failed to listen for Ctrl-C");
+
+    eprintln!("\nShutting down…");
+    server.stop();
+}
+
+#[cfg(not(feature = "remote"))]
+async fn run_headless() {
+    eprintln!("ERROR: Headless mode requires the 'remote' feature.");
+    eprintln!("  Build with: cargo build --release -p vida-ai --features remote");
+    std::process::exit(1);
+}
+
 fn main() {
+    if is_headless() {
+        // Headless mode: tokio runtime + HTTP server, no Tauri GUI
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(run_headless());
+        return;
+    }
+
+    // Normal GUI mode
     tauri::Builder::default()
         .setup(|app| {
-            let data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .expect("Failed to get app data dir");
             let rt = tokio::runtime::Runtime::new().unwrap();
             let engine = rt
                 .block_on(VidaEngine::init(&data_dir))

@@ -3,6 +3,11 @@ name = "vida-core"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+remote = ["axum", "tower-http", "getrandom"]
+telegram = ["teloxide", "remote"]
+
 [dependencies]
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -13,6 +18,15 @@ vida-providers = { path = "../vida-providers" }
 vida-security = { path = "../vida-security" }
 vida-db = { path = "../vida-db" }
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
+
+# Remote server (optional)
+axum = { version = "0.7", features = ["ws"], optional = true }
+tower-http = { version = "0.6", features = ["cors"], optional = true }
+getrandom = { version = "0.3", optional = true }
+
+# Telegram bot (optional, implies remote)
+teloxide = { version = "0.13", features = ["macros"], optional = true }
+log = "0.4"
 
 [dev-dependencies]
 async-trait = { workspace = true }
