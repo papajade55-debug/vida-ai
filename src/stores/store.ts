@@ -92,6 +92,7 @@ export const useStore = create<StoreState>()(
           sessions: s.sessions.filter((sess) => sess.id !== id),
           currentSessionId:
             s.currentSessionId === id ? null : s.currentSessionId,
+          messages: (() => { const m = { ...s.messages }; delete m[id]; return m; })(),
         })),
 
       // ── Messages slice ──
@@ -119,7 +120,22 @@ export const useStore = create<StoreState>()(
         set((s) => ({ streamingContent: s.streamingContent + token })),
 
       finishStreaming: () =>
-        set({ streamingMessageId: null, streamingContent: "" }),
+        set((s) => {
+          if (!s.streamingMessageId || !s.currentSessionId) {
+            return { streamingMessageId: null, streamingContent: "" };
+          }
+          const sessionMsgs = s.messages[s.currentSessionId] || [];
+          const updated = sessionMsgs.map((msg) =>
+            msg.id === s.streamingMessageId
+              ? { ...msg, content: s.streamingContent }
+              : msg
+          );
+          return {
+            messages: { ...s.messages, [s.currentSessionId]: updated },
+            streamingMessageId: null,
+            streamingContent: "",
+          };
+        }),
 
       // ── Providers slice ──
       providers: [],
