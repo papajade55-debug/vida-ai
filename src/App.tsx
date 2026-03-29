@@ -1,5 +1,6 @@
 import { AppLayout } from "@/src/components/layout/AppLayout";
 import { ChatArea } from "@/src/components/chat/ChatArea";
+import { SettingsModal } from "@/src/components/settings/SettingsModal";
 import { useTheme } from "@/src/hooks/useTheme";
 
 export default function App() {
@@ -9,6 +10,7 @@ export default function App() {
   return (
     <AppLayout>
       <ChatArea />
+      <SettingsModal />
     </AppLayout>
   );
 }
