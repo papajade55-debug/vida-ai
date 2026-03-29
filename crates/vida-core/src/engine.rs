@@ -4,13 +4,15 @@ use std::sync::Arc;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use vida_db::{Database, MessageRow, SessionRow, TeamRow, TeamMemberRow};
+use vida_db::{Database, MessageRow, SessionRow, TeamRow, TeamMemberRow, RecentWorkspaceRow};
 use vida_providers::traits::*;
 use vida_providers::registry::ProviderRegistry;
 use vida_security::keychain::{SecretStore, KeychainManager, MockSecretStore};
 
 use crate::config::AppConfig;
 use crate::error::VidaError;
+use crate::permissions::{PermissionManager, PermissionMode, PermissionType, PermissionResult};
+use crate::workspace::{WorkspaceConfig, load_workspace_config, save_workspace_config};
 
 /// Color palette for auto-assignment to team members.
 const TEAM_COLORS: &[&str] = &[
@@ -41,6 +43,9 @@ pub struct VidaEngine {
     pub providers: ProviderRegistry,
     pub secrets: Box<dyn SecretStore>,
     pub config: AppConfig,
+    pub workspace_path: Option<String>,
+    pub workspace_config: WorkspaceConfig,
+    pub permission_manager: PermissionManager,
 }
 
 impl VidaEngine {
@@ -67,8 +72,18 @@ impl VidaEngine {
         };
 
         let providers = ProviderRegistry::new();
+        let workspace_config = WorkspaceConfig::default();
+        let permission_manager = PermissionManager::new(
+            workspace_config.permission_mode.clone(),
+            workspace_config.permissions.clone(),
+        );
 
-        Ok(Self { db, providers, secrets, config })
+        Ok(Self {
+            db, providers, secrets, config,
+            workspace_path: None,
+            workspace_config,
+            permission_manager,
+        })
     }
 
     /// Initialize with in-memory DB (for testing).
@@ -78,7 +93,17 @@ impl VidaEngine {
         let secrets = Box::new(MockSecretStore::new());
         let config = AppConfig::default();
         let providers = ProviderRegistry::new();
-        Ok(Self { db, providers, secrets, config })
+        let workspace_config = WorkspaceConfig::default();
+        let permission_manager = PermissionManager::new(
+            workspace_config.permission_mode.clone(),
+            workspace_config.permissions.clone(),
+        );
+        Ok(Self {
+            db, providers, secrets, config,
+            workspace_path: None,
+            workspace_config,
+            permission_manager,
+        })
     }
 
     // ── Chat ──
@@ -403,6 +428,97 @@ impl VidaEngine {
         };
         self.db.create_session(&session).await?;
         Ok(session)
+    }
+
+    // ── Workspaces ──
+
+    /// Open a workspace directory, load its .vida/config.json, update recent list.
+    pub async fn open_workspace(&mut self, path: &str) -> Result<WorkspaceConfig, VidaError> {
+        let workspace_path = std::path::Path::new(path);
+        if !workspace_path.exists() {
+            return Err(VidaError::Config(format!("Workspace path does not exist: {}", path)));
+        }
+
+        let config = load_workspace_config(workspace_path)?;
+        self.permission_manager = PermissionManager::new(
+            config.permission_mode.clone(),
+            config.permissions.clone(),
+        );
+        self.workspace_config = config.clone();
+        self.workspace_path = Some(path.to_string());
+
+        // Update recent workspaces in DB
+        self.db.add_recent_workspace(path, &config.name).await?;
+
+        Ok(config)
+    }
+
+    /// Create a new workspace with .vida/config.json defaults.
+    pub async fn create_workspace(&mut self, path: &str, name: &str) -> Result<WorkspaceConfig, VidaError> {
+        let workspace_path = std::path::Path::new(path);
+        let mut config = WorkspaceConfig::default();
+        config.name = name.to_string();
+
+        save_workspace_config(workspace_path, &config)?;
+
+        self.permission_manager = PermissionManager::new(
+            config.permission_mode.clone(),
+            config.permissions.clone(),
+        );
+        self.workspace_config = config.clone();
+        self.workspace_path = Some(path.to_string());
+
+        // Update recent workspaces in DB
+        self.db.add_recent_workspace(path, name).await?;
+
+        Ok(config)
+    }
+
+    /// List recent workspaces from DB.
+    pub async fn list_recent_workspaces(&self) -> Result<Vec<RecentWorkspaceRow>, VidaError> {
+        Ok(self.db.list_recent_workspaces(20).await?)
+    }
+
+    /// Get the current workspace config.
+    pub fn get_workspace_config(&self) -> &WorkspaceConfig {
+        &self.workspace_config
+    }
+
+    /// Update the workspace config. If a workspace is open, saves to disk.
+    pub fn set_workspace_config(&mut self, config: WorkspaceConfig) -> Result<(), VidaError> {
+        self.permission_manager = PermissionManager::new(
+            config.permission_mode.clone(),
+            config.permissions.clone(),
+        );
+
+        if let Some(ref path) = self.workspace_path {
+            save_workspace_config(std::path::Path::new(path), &config)?;
+        }
+
+        self.workspace_config = config;
+        Ok(())
+    }
+
+    /// Get current permission mode.
+    pub fn get_permission_mode(&self) -> &PermissionMode {
+        self.permission_manager.mode()
+    }
+
+    /// Set permission mode.
+    pub fn set_permission_mode(&mut self, mode: PermissionMode) -> Result<(), VidaError> {
+        self.permission_manager.set_mode(mode.clone());
+        self.workspace_config.permission_mode = mode;
+
+        if let Some(ref path) = self.workspace_path {
+            save_workspace_config(std::path::Path::new(path), &self.workspace_config)?;
+        }
+
+        Ok(())
+    }
+
+    /// Check a permission against the current permission manager.
+    pub fn check_permission(&self, perm: PermissionType) -> PermissionResult {
+        self.permission_manager.check(perm)
     }
 
     /// Send a message to ALL team members in parallel.
@@ -842,6 +958,95 @@ mod tests {
             assert!(msg.agent_color.is_some());
             assert_eq!(msg.content, "Hello world!");
         }
+    }
+
+    // ── Workspace Tests ──
+
+    #[tokio::test]
+    async fn test_create_workspace() {
+        let mut engine = VidaEngine::init_in_memory().await.unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().to_str().unwrap();
+
+        let config = engine.create_workspace(path, "Test Project").await.unwrap();
+        assert_eq!(config.name, "Test Project");
+        assert_eq!(config.permission_mode, PermissionMode::Ask);
+        assert_eq!(engine.workspace_path, Some(path.to_string()));
+
+        // Check .vida/config.json was created
+        assert!(tmp.path().join(".vida").join("config.json").exists());
+
+        // Check recent workspaces
+        let recent = engine.list_recent_workspaces().await.unwrap();
+        assert_eq!(recent.len(), 1);
+        assert_eq!(recent[0].name, "Test Project");
+    }
+
+    #[tokio::test]
+    async fn test_open_workspace() {
+        let mut engine = VidaEngine::init_in_memory().await.unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().to_str().unwrap();
+
+        // Create workspace first
+        engine.create_workspace(path, "My Workspace").await.unwrap();
+
+        // Re-open it
+        let mut engine2 = VidaEngine::init_in_memory().await.unwrap();
+        let config = engine2.open_workspace(path).await.unwrap();
+        assert_eq!(config.name, "My Workspace");
+        assert_eq!(engine2.workspace_path, Some(path.to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_open_nonexistent_workspace() {
+        let mut engine = VidaEngine::init_in_memory().await.unwrap();
+        let result = engine.open_workspace("/nonexistent/path").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_set_workspace_config() {
+        let mut engine = VidaEngine::init_in_memory().await.unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().to_str().unwrap();
+
+        engine.create_workspace(path, "Original").await.unwrap();
+
+        let mut new_config = engine.get_workspace_config().clone();
+        new_config.name = "Updated".to_string();
+        new_config.permission_mode = PermissionMode::Yolo;
+        engine.set_workspace_config(new_config).unwrap();
+
+        assert_eq!(engine.get_workspace_config().name, "Updated");
+        assert_eq!(engine.get_permission_mode(), &PermissionMode::Yolo);
+
+        // Verify persisted to disk
+        let loaded = load_workspace_config(tmp.path()).unwrap();
+        assert_eq!(loaded.name, "Updated");
+        assert_eq!(loaded.permission_mode, PermissionMode::Yolo);
+    }
+
+    #[tokio::test]
+    async fn test_set_permission_mode() {
+        let mut engine = VidaEngine::init_in_memory().await.unwrap();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let path = tmp.path().to_str().unwrap();
+
+        engine.create_workspace(path, "Perms Test").await.unwrap();
+        assert_eq!(engine.get_permission_mode(), &PermissionMode::Ask);
+
+        engine.set_permission_mode(PermissionMode::Sandbox).unwrap();
+        assert_eq!(engine.get_permission_mode(), &PermissionMode::Sandbox);
+
+        // Check permission: file_write is false by default
+        let result = engine.check_permission(PermissionType::FileWrite);
+        assert_eq!(result, PermissionResult::Denied);
+
+        // In Yolo mode, everything is allowed
+        engine.set_permission_mode(PermissionMode::Yolo).unwrap();
+        let result = engine.check_permission(PermissionType::FileWrite);
+        assert_eq!(result, PermissionResult::Allowed);
     }
 
     #[tokio::test]
