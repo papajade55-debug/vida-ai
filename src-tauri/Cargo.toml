@@ -11,6 +11,7 @@ serde_json = { workspace = true }
 vida-core = { path = "../crates/vida-core" }
 vida-providers = { path = "../crates/vida-providers" }
 vida-db = { path = "../crates/vida-db" }
+base64 = "0.22"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

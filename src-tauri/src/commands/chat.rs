@@ -3,7 +3,7 @@ use tauri::{AppHandle, Emitter, State};
 use tokio::sync::{mpsc, RwLock};
 use vida_core::{VidaEngine, VidaError};
 use vida_db::{MessageRow, SessionRow};
-use vida_providers::traits::{CompletionResponse, StreamEvent};
+use vida_providers::traits::{CompletionOptions, CompletionResponse, StreamEvent};
 
 #[tauri::command]
 pub async fn send_message(
@@ -94,4 +94,42 @@ pub async fn delete_session(
     e.delete_session(&session_id)
         .await
         .map_err(|e: VidaError| e.to_string())
+}
+
+#[tauri::command]
+pub async fn send_vision_message(
+    engine: State<'_, Arc<RwLock<VidaEngine>>>,
+    session_id: String,
+    image_base64: String,
+    prompt: String,
+) -> Result<CompletionResponse, String> {
+    use base64::Engine;
+
+    let image_data = base64::engine::general_purpose::STANDARD
+        .decode(&image_base64)
+        .map_err(|e| format!("Invalid base64: {}", e))?;
+
+    let e = engine.read().await;
+
+    let session = e
+        .db
+        .get_session(&session_id)
+        .await
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Session not found: {}", session_id))?;
+
+    let provider = e
+        .providers
+        .get(&session.provider_id)
+        .ok_or_else(|| format!("Provider not found: {}", session.provider_id))?;
+
+    let options = CompletionOptions {
+        model: Some(session.model.clone()),
+        ..Default::default()
+    };
+
+    provider
+        .vision_completion(image_data, &prompt, Some(options))
+        .await
+        .map_err(|e| e.to_string())
 }

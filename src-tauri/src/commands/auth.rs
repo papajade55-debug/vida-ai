@@ -23,3 +23,14 @@ pub async fn store_api_key(
         .await
         .map_err(|e: VidaError| e.to_string())
 }
+
+#[tauri::command]
+pub async fn remove_api_key(
+    engine: State<'_, Arc<RwLock<VidaEngine>>>,
+    provider_id: String,
+) -> Result<(), String> {
+    let e = engine.read().await;
+    e.remove_api_key(&provider_id)
+        .await
+        .map_err(|e: VidaError| e.to_string())
+}

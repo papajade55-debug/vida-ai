@@ -21,6 +21,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::auth::is_pin_configured,
             commands::auth::store_api_key,
+            commands::auth::remove_api_key,
             commands::providers::list_providers,
             commands::providers::list_models,
             commands::providers::health_check,
@@ -30,6 +31,7 @@ fn main() {
             commands::chat::list_sessions,
             commands::chat::get_messages,
             commands::chat::delete_session,
+            commands::chat::send_vision_message,
             commands::config::get_config,
             commands::teams::create_team,
             commands::teams::list_teams,
