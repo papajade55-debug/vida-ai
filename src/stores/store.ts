@@ -7,6 +7,7 @@ import type {
   TeamRow,
   WorkspaceConfig,
   RecentWorkspaceRow,
+  McpServerInfo,
 } from "@/src/lib/tauri";
 
 // ── State types ──
@@ -31,6 +32,10 @@ interface WorkspaceSlice {
   workspacePath: string | null;
   workspaceConfig: WorkspaceConfig | null;
   recentWorkspaces: RecentWorkspaceRow[];
+}
+
+interface McpSlice {
+  mcpServers: McpServerInfo[];
 }
 
 interface ProvidersSlice {
@@ -79,6 +84,10 @@ interface WorkspaceActions {
   setRecentWorkspaces: (workspaces: RecentWorkspaceRow[]) => void;
 }
 
+interface McpActions {
+  setMcpServers: (servers: McpServerInfo[]) => void;
+}
+
 interface ProvidersActions {
   setProviders: (providers: ProviderInfo[]) => void;
   setProviderHealth: (health: Record<string, boolean>) => void;
@@ -95,12 +104,14 @@ interface UiActions {
 type StoreState = SessionsSlice &
   MessagesSlice &
   TeamsSlice &
+  McpSlice &
   WorkspaceSlice &
   ProvidersSlice &
   UiSlice &
   SessionsActions &
   MessagesActions &
   TeamsActions &
+  McpActions &
   WorkspaceActions &
   ProvidersActions &
   UiActions;
@@ -208,6 +219,11 @@ export const useStore = create<StoreState>()(
         }),
 
       finishAllStreaming: () => set({ agentStreaming: {} }),
+
+      // ── MCP slice ──
+      mcpServers: [],
+
+      setMcpServers: (servers) => set({ mcpServers: servers }),
 
       // ── Workspace slice ──
       workspacePath: null,

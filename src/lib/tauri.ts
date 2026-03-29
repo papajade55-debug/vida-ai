@@ -98,6 +98,44 @@ export interface RecentWorkspaceRow {
   last_used: string;
 }
 
+// ── MCP types ──
+
+export interface McpServerInfo {
+  name: string;
+  command: string;
+  running: boolean;
+  tool_count: number;
+  tools: McpTool[];
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  input_schema: Record<string, unknown>;
+  server_name: string;
+}
+
+export interface McpToolResultContent {
+  type: string;
+  text: string;
+}
+
+export interface McpToolResult {
+  content: McpToolResultContent[];
+  is_error: boolean;
+}
+
+export interface McpServerConfigRow {
+  id: string;
+  workspace_path: string | null;
+  name: string;
+  command: string;
+  args_json: string | null;
+  env_json: string | null;
+  enabled: number;
+  created_at: string;
+}
+
 // ── Typed invoke wrappers ──
 
 export const api = {
@@ -142,6 +180,22 @@ export const api = {
     invoke<SessionRow>("create_team_session", { teamId }),
   streamTeamCompletion: (sessionId: string, content: string) =>
     invoke<void>("stream_team_completion", { sessionId, content }),
+
+  // MCP
+  startMcpServer: (name: string) =>
+    invoke<McpTool[]>("start_mcp_server", { name }),
+  stopMcpServer: (name: string) =>
+    invoke<void>("stop_mcp_server", { name }),
+  listMcpServers: () =>
+    invoke<McpServerInfo[]>("list_mcp_servers"),
+  listMcpTools: () =>
+    invoke<McpTool[]>("list_mcp_tools"),
+  callMcpTool: (toolName: string, args: Record<string, unknown>) =>
+    invoke<McpToolResult>("call_mcp_tool", { toolName, arguments: args }),
+  saveMcpServerConfig: (config: McpServerConfigRow) =>
+    invoke<void>("save_mcp_server_config", { config }),
+  deleteMcpServerConfig: (id: string) =>
+    invoke<void>("delete_mcp_server_config", { id }),
 
   // Config
   getConfig: () => invoke<AppConfig>("get_config"),
