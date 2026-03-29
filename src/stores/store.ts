@@ -4,6 +4,7 @@ import type {
   SessionRow,
   MessageRow,
   ProviderInfo,
+  TeamRow,
 } from "@/src/lib/tauri";
 
 // ── State types ──
@@ -17,6 +18,11 @@ interface MessagesSlice {
   messages: Record<string, MessageRow[]>;
   streamingMessageId: string | null;
   streamingContent: string;
+}
+
+interface TeamsSlice {
+  teams: TeamRow[];
+  agentStreaming: Record<string, string>; // agent_id → accumulated content
 }
 
 interface ProvidersSlice {
@@ -49,6 +55,16 @@ interface MessagesActions {
   finishStreaming: () => void;
 }
 
+interface TeamsActions {
+  setTeams: (teams: TeamRow[]) => void;
+  addTeam: (team: TeamRow) => void;
+  removeTeam: (id: string) => void;
+  startTeamStreaming: (agentIds: string[]) => void;
+  appendAgentToken: (agentId: string, token: string) => void;
+  finishAgentStreaming: (agentId: string) => void;
+  finishAllStreaming: () => void;
+}
+
 interface ProvidersActions {
   setProviders: (providers: ProviderInfo[]) => void;
   setProviderHealth: (health: Record<string, boolean>) => void;
@@ -64,10 +80,12 @@ interface UiActions {
 
 type StoreState = SessionsSlice &
   MessagesSlice &
+  TeamsSlice &
   ProvidersSlice &
   UiSlice &
   SessionsActions &
   MessagesActions &
+  TeamsActions &
   ProvidersActions &
   UiActions;
 
@@ -136,6 +154,44 @@ export const useStore = create<StoreState>()(
             streamingContent: "",
           };
         }),
+
+      // ── Teams slice ──
+      teams: [],
+      agentStreaming: {},
+
+      setTeams: (teams) => set({ teams }),
+
+      addTeam: (team) =>
+        set((s) => ({ teams: [team, ...s.teams] })),
+
+      removeTeam: (id) =>
+        set((s) => ({ teams: s.teams.filter((t) => t.id !== id) })),
+
+      startTeamStreaming: (agentIds) =>
+        set(() => {
+          const agentStreaming: Record<string, string> = {};
+          for (const id of agentIds) {
+            agentStreaming[id] = "";
+          }
+          return { agentStreaming };
+        }),
+
+      appendAgentToken: (agentId, token) =>
+        set((s) => ({
+          agentStreaming: {
+            ...s.agentStreaming,
+            [agentId]: (s.agentStreaming[agentId] ?? "") + token,
+          },
+        })),
+
+      finishAgentStreaming: (agentId) =>
+        set((s) => {
+          const updated = { ...s.agentStreaming };
+          delete updated[agentId];
+          return { agentStreaming: updated };
+        }),
+
+      finishAllStreaming: () => set({ agentStreaming: {} }),
 
       // ── Providers slice ──
       providers: [],

@@ -27,6 +27,9 @@ export function useStreamCompletion() {
         content,
         token_count: null,
         created_at: new Date().toISOString(),
+        agent_id: null,
+        agent_name: null,
+        agent_color: null,
       };
       addMessage(sessionId, userMessage);
 
@@ -39,6 +42,9 @@ export function useStreamCompletion() {
         content: "",
         token_count: null,
         created_at: new Date().toISOString(),
+        agent_id: null,
+        agent_name: null,
+        agent_color: null,
       };
       addMessage(sessionId, assistantMessage);
       startStreaming(assistantId);
