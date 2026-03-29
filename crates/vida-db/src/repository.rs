@@ -283,6 +283,68 @@ impl Database {
             .await?;
         Ok(())
     }
+
+    // ── MCP Server Configs ──
+
+    pub async fn upsert_mcp_server(&self, config: &McpServerConfigRow) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO mcp_server_configs (id, workspace_path, name, command, args_json, env_json, enabled, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET workspace_path = excluded.workspace_path, name = excluded.name,
+             command = excluded.command, args_json = excluded.args_json, env_json = excluded.env_json,
+             enabled = excluded.enabled"
+        )
+        .bind(&config.id)
+        .bind(&config.workspace_path)
+        .bind(&config.name)
+        .bind(&config.command)
+        .bind(&config.args_json)
+        .bind(&config.env_json)
+        .bind(config.enabled)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_mcp_servers(&self, workspace_path: Option<&str>) -> Result<Vec<McpServerConfigRow>, DbError> {
+        match workspace_path {
+            Some(path) => {
+                let rows = sqlx::query_as::<_, McpServerConfigRow>(
+                    "SELECT * FROM mcp_server_configs WHERE workspace_path = ? OR workspace_path IS NULL ORDER BY name"
+                )
+                .bind(path)
+                .fetch_all(&self.pool)
+                .await?;
+                Ok(rows)
+            }
+            None => {
+                let rows = sqlx::query_as::<_, McpServerConfigRow>(
+                    "SELECT * FROM mcp_server_configs ORDER BY name"
+                )
+                .fetch_all(&self.pool)
+                .await?;
+                Ok(rows)
+            }
+        }
+    }
+
+    pub async fn get_mcp_server(&self, id: &str) -> Result<Option<McpServerConfigRow>, DbError> {
+        let row = sqlx::query_as::<_, McpServerConfigRow>(
+            "SELECT * FROM mcp_server_configs WHERE id = ?"
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(row)
+    }
+
+    pub async fn delete_mcp_server(&self, id: &str) -> Result<(), DbError> {
+        sqlx::query("DELETE FROM mcp_server_configs WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -645,6 +707,127 @@ mod tests {
 
         let workspaces = db.list_recent_workspaces(3).await.unwrap();
         assert_eq!(workspaces.len(), 3);
+    }
+
+    // ── MCP Server Config Tests ──
+
+    #[tokio::test]
+    async fn test_mcp_server_upsert_and_list() {
+        let db = setup_db().await;
+        let config = McpServerConfigRow {
+            id: "mcp-1".to_string(),
+            workspace_path: None,
+            name: "filesystem".to_string(),
+            command: "npx".to_string(),
+            args_json: Some(r#"["-y","@modelcontextprotocol/server-filesystem","/tmp"]"#.to_string()),
+            env_json: None,
+            enabled: 1,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&config).await.unwrap();
+
+        let servers = db.list_mcp_servers(None).await.unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].name, "filesystem");
+        assert_eq!(servers[0].command, "npx");
+    }
+
+    #[tokio::test]
+    async fn test_mcp_server_upsert_update() {
+        let db = setup_db().await;
+        let config = McpServerConfigRow {
+            id: "mcp-1".to_string(),
+            workspace_path: None,
+            name: "filesystem".to_string(),
+            command: "npx".to_string(),
+            args_json: None,
+            env_json: None,
+            enabled: 1,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&config).await.unwrap();
+
+        // Update
+        let config2 = McpServerConfigRow {
+            id: "mcp-1".to_string(),
+            workspace_path: None,
+            name: "filesystem-v2".to_string(),
+            command: "node".to_string(),
+            args_json: None,
+            env_json: None,
+            enabled: 0,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&config2).await.unwrap();
+
+        let servers = db.list_mcp_servers(None).await.unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].name, "filesystem-v2");
+        assert_eq!(servers[0].command, "node");
+        assert_eq!(servers[0].enabled, 0);
+    }
+
+    #[tokio::test]
+    async fn test_mcp_server_get_and_delete() {
+        let db = setup_db().await;
+        let config = McpServerConfigRow {
+            id: "mcp-del".to_string(),
+            workspace_path: None,
+            name: "github".to_string(),
+            command: "npx".to_string(),
+            args_json: None,
+            env_json: Some(r#"{"GITHUB_TOKEN":"xxx"}"#.to_string()),
+            enabled: 1,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&config).await.unwrap();
+
+        let fetched = db.get_mcp_server("mcp-del").await.unwrap();
+        assert!(fetched.is_some());
+        assert_eq!(fetched.unwrap().name, "github");
+
+        db.delete_mcp_server("mcp-del").await.unwrap();
+        let fetched = db.get_mcp_server("mcp-del").await.unwrap();
+        assert!(fetched.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_mcp_server_filter_by_workspace() {
+        let db = setup_db().await;
+        // Global server (no workspace_path)
+        let global = McpServerConfigRow {
+            id: "mcp-global".to_string(),
+            workspace_path: None,
+            name: "global-fs".to_string(),
+            command: "npx".to_string(),
+            args_json: None,
+            env_json: None,
+            enabled: 1,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&global).await.unwrap();
+
+        // Workspace-specific server
+        let ws = McpServerConfigRow {
+            id: "mcp-ws".to_string(),
+            workspace_path: Some("/home/user/project".to_string()),
+            name: "project-fs".to_string(),
+            command: "npx".to_string(),
+            args_json: None,
+            env_json: None,
+            enabled: 1,
+            created_at: String::new(),
+        };
+        db.upsert_mcp_server(&ws).await.unwrap();
+
+        // Filter by workspace should return both global and workspace-specific
+        let servers = db.list_mcp_servers(Some("/home/user/project")).await.unwrap();
+        assert_eq!(servers.len(), 2);
+
+        // Filter by different workspace should return only global
+        let servers = db.list_mcp_servers(Some("/other/path")).await.unwrap();
+        assert_eq!(servers.len(), 1);
+        assert_eq!(servers[0].name, "global-fs");
     }
 
     #[tokio::test]

@@ -62,3 +62,15 @@ pub struct RecentWorkspaceRow {
     pub name: String,
     pub last_used: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct McpServerConfigRow {
+    pub id: String,
+    pub workspace_path: Option<String>,
+    pub name: String,
+    pub command: String,
+    pub args_json: Option<String>,
+    pub env_json: Option<String>,
+    pub enabled: i32,
+    pub created_at: String,
+}
