@@ -81,6 +81,8 @@ export const api = {
   isPinConfigured: () => invoke<boolean>("is_pin_configured"),
   storeApiKey: (providerId: string, key: string) =>
     invoke<void>("store_api_key", { providerId, key }),
+  removeApiKey: (providerId: string) =>
+    invoke<void>("remove_api_key", { providerId }),
 
   // Providers
   listProviders: () => invoke<ProviderInfo[]>("list_providers"),
@@ -101,6 +103,8 @@ export const api = {
     invoke<MessageRow[]>("get_messages", { sessionId }),
   deleteSession: (sessionId: string) =>
     invoke<void>("delete_session", { sessionId }),
+  sendVisionMessage: (sessionId: string, imageBase64: string, prompt: string) =>
+    invoke<CompletionResponse>("send_vision_message", { sessionId, imageBase64, prompt }),
 
   // Teams
   createTeam: (name: string, members: [string, string][]) =>
