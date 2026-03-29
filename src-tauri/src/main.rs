@@ -46,6 +46,13 @@ fn main() {
             commands::workspace::set_workspace_config,
             commands::workspace::get_permission_mode,
             commands::workspace::set_permission_mode,
+            commands::mcp::start_mcp_server,
+            commands::mcp::stop_mcp_server,
+            commands::mcp::list_mcp_servers,
+            commands::mcp::list_mcp_tools,
+            commands::mcp::call_mcp_tool,
+            commands::mcp::save_mcp_server_config,
+            commands::mcp::delete_mcp_server_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running vida-ai");
