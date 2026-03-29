@@ -8,7 +8,7 @@
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
 
   /* Surfaces */
-  --bg-primary: #f4f5f7;
+  --bg-primary: linear-gradient(135deg, #e8eaf6 0%, #f4f5f7 30%, #e3f2fd 60%, #f3e5f5 100%);
   --bg-secondary: #ffffff;
 
   /* Text */
@@ -56,7 +56,7 @@
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 
   /* Surfaces */
-  --bg-primary: #0f0f1a;
+  --bg-primary: linear-gradient(135deg, #0a0a1a 0%, #121228 30%, #0d1b2a 60%, #1a0a2e 100%);
   --bg-secondary: #1a1a2e;
 
   /* Text */

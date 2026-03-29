@@ -18,3 +18,4 @@ src-tauri/target/
 
 # Local assistant/editor settings
 .claude/
+.aider*

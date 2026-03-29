@@ -8,10 +8,25 @@ import { TeamList } from "@/src/components/teams/TeamList";
 import { TeamCreator } from "@/src/components/teams/TeamCreator";
 import { WorkspaceSelector } from "@/src/components/workspace/WorkspaceSelector";
 import { useStore } from "@/src/stores/store";
+import { api } from "@/src/lib/tauri";
 
 export function Sidebar() {
   const setSettingsOpen = useStore((s) => s.setSettingsOpen);
+  const addSession = useStore((s) => s.addSession);
+  const setCurrentSession = useStore((s) => s.setCurrentSession);
+  const setMessages = useStore((s) => s.setMessages);
   const [teamCreatorOpen, setTeamCreatorOpen] = useState(false);
+
+  const handleNewChat = async () => {
+    try {
+      const session = await api.createSession("ollama", "qwen3:14b");
+      addSession(session);
+      setCurrentSession(session.id);
+      setMessages(session.id, []);
+    } catch (e) {
+      console.error("Failed to create session:", e);
+    }
+  };
 
   return (
     <>
@@ -22,7 +37,7 @@ export function Sidebar() {
             Vida AI
           </span>
           <div className="flex gap-1">
-            <GlassButton variant="ghost" icon={<Plus size={16} />} title="New Chat" />
+            <GlassButton variant="ghost" icon={<Plus size={16} />} title="New Chat" onClick={handleNewChat} />
             <GlassButton
               variant="ghost"
               icon={<Settings size={16} />}

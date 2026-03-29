@@ -243,7 +243,7 @@ export const useStore = create<StoreState>()(
       setProviderHealth: (health) => set({ providerHealth: health }),
 
       // ── UI slice ──
-      theme: "light",
+      theme: "dark",
       sidebarOpen: true,
       settingsOpen: false,
 

@@ -1,7 +1,9 @@
 import { useState, useCallback, DragEvent } from "react";
-import { Upload } from "lucide-react";
+import { Upload, MessageSquarePlus } from "lucide-react";
 import { GlassPanel } from "@/src/design-system/GlassPanel";
+import { GlassButton } from "@/src/design-system/GlassButton";
 import { useStore } from "@/src/stores/store";
+import { api } from "@/src/lib/tauri";
 import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
@@ -90,6 +92,21 @@ export function ChatArea() {
     setAttachedFiles([]);
   }, []);
 
+  const addSession = useStore((s) => s.addSession);
+  const setCurrentSession = useStore((s) => s.setCurrentSession);
+  const setMessages = useStore((s) => s.setMessages);
+
+  const handleStartChat = async () => {
+    try {
+      const session = await api.createSession("ollama", "qwen3:14b");
+      addSession(session);
+      setCurrentSession(session.id);
+      setMessages(session.id, []);
+    } catch (e) {
+      console.error("Failed to create session:", e);
+    }
+  };
+
   if (!currentSessionId) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -98,9 +115,16 @@ export function ChatArea() {
           <div className="text-xl font-semibold mb-2" style={{ color: "var(--text-primary)" }}>
             Welcome to Vida AI
           </div>
-          <div className="text-sm" style={{ color: "var(--text-secondary)" }}>
+          <div className="text-sm mb-6" style={{ color: "var(--text-secondary)" }}>
             Create a new chat to get started
           </div>
+          <GlassButton
+            variant="primary"
+            icon={<MessageSquarePlus size={18} />}
+            onClick={handleStartChat}
+          >
+            New Chat
+          </GlassButton>
         </div>
       </div>
     );
