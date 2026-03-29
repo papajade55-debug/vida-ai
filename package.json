@@ -17,6 +17,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "highlight.js": "^11.11.1",
     "i18next": "^26.0.1",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.546.0",
@@ -24,7 +25,11 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-i18next": "^17.0.1",
-    "vite": "^6.2.0"
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "vite": "^6.2.0",
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
     "@types/express": "^4.17.21",

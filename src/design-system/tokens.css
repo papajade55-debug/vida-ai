@@ -1,0 +1,100 @@
+/* ── Vida AI Design Tokens ── */
+
+:root {
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-blur: 16px;
+  --glass-border: rgba(255, 255, 255, 0.35);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+
+  /* Surfaces */
+  --bg-primary: #f4f5f7;
+  --bg-secondary: #ffffff;
+
+  /* Text */
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Accent */
+  --accent: #6366f1;
+  --accent-hover: #4f46e5;
+  --accent-text: #ffffff;
+  --accent-subtle: rgba(99, 102, 241, 0.1);
+
+  /* Messages */
+  --msg-user-bg: #6366f1;
+  --msg-user-text: #ffffff;
+  --msg-assistant-bg: rgba(255, 255, 255, 0.8);
+  --msg-assistant-text: #1a1a2e;
+  --msg-assistant-border: rgba(0, 0, 0, 0.06);
+
+  /* Status */
+  --status-active: #22c55e;
+  --status-streaming: #6366f1;
+  --status-error: #ef4444;
+  --status-offline: #9ca3af;
+
+  /* Radius */
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-sm: 8px;
+
+  /* Layout */
+  --sidebar-width: 280px;
+
+  /* Transition */
+  --transition-theme: background-color 0.3s ease, color 0.3s ease,
+    border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+[data-theme="dark"] {
+  /* Glass */
+  --glass-bg: rgba(30, 30, 46, 0.7);
+  --glass-blur: 20px;
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* Surfaces */
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+
+  /* Text */
+  --text-primary: #e4e4ed;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+
+  /* Accent */
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-text: #ffffff;
+  --accent-subtle: rgba(129, 140, 248, 0.12);
+
+  /* Messages */
+  --msg-user-bg: #4f46e5;
+  --msg-user-text: #ffffff;
+  --msg-assistant-bg: rgba(30, 30, 46, 0.85);
+  --msg-assistant-text: #e4e4ed;
+  --msg-assistant-border: rgba(255, 255, 255, 0.06);
+
+  /* Status */
+  --status-active: #4ade80;
+  --status-streaming: #818cf8;
+  --status-error: #f87171;
+  --status-offline: #6b7280;
+}
+
+/* Global theme transition */
+*,
+*::before,
+*::after {
+  transition: var(--transition-theme);
+}
+
+/* Disable transition on theme-insensitive animations */
+[data-no-theme-transition],
+[data-no-theme-transition] *,
+[data-no-theme-transition] *::before,
+[data-no-theme-transition] *::after {
+  transition: none !important;
+}
