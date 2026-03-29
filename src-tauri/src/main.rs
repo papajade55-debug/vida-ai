@@ -39,6 +39,13 @@ fn main() {
             commands::teams::delete_team,
             commands::teams::create_team_session,
             commands::teams::stream_team_completion,
+            commands::workspace::open_workspace,
+            commands::workspace::create_workspace,
+            commands::workspace::list_recent_workspaces,
+            commands::workspace::get_workspace_config,
+            commands::workspace::set_workspace_config,
+            commands::workspace::get_permission_mode,
+            commands::workspace::set_permission_mode,
         ])
         .run(tauri::generate_context!())
         .expect("error while running vida-ai");
