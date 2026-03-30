@@ -21,6 +21,8 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
   const { providers } = useProviders();
   const { createTeam } = useTeams();
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // Build flat list of provider/model pairs
@@ -60,6 +62,8 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
     const members: [string, string][] = selectedEntries.map((e) => [e.providerId, e.model]);
     await createTeam(name.trim(), members);
     setName("");
+    setDescription("");
+    setSystemPrompt("");
     setSelected(new Set());
     onClose();
   };
@@ -92,6 +96,38 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
             value={name}
             onChange={setName}
             placeholder="e.g. Code Review Team"
+          />
+        </div>
+
+        {/* Description */}
+        <div className="mb-4">
+          <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-secondary)" }}>
+            Description (optional)
+          </label>
+          <GlassInput
+            value={description}
+            onChange={setDescription}
+            placeholder="e.g. Team for code review and architecture"
+          />
+        </div>
+
+        {/* System Prompt */}
+        <div className="mb-4">
+          <label className="text-xs font-medium mb-1 block" style={{ color: "var(--text-secondary)" }}>
+            System Prompt (optional)
+          </label>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder="Instructions shared by all team members..."
+            rows={3}
+            className="w-full px-3 py-2 rounded-[var(--radius)] text-sm resize-none"
+            style={{
+              background: "var(--glass-bg)",
+              border: "1px solid var(--glass-border)",
+              color: "var(--text-primary)",
+              outline: "none",
+            }}
           />
         </div>
 

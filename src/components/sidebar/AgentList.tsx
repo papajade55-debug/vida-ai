@@ -20,7 +20,7 @@ export function AgentList() {
         <AgentItem
           key={provider.id}
           provider={provider}
-          healthy={health[provider.id] ?? false}
+          healthy={health[provider.id] ?? undefined}
           streaming={streamingMessageId !== null}
         />
       ))}

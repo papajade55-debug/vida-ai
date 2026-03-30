@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 
-type Status = "idle" | "streaming" | "error" | "offline";
+type Status = "idle" | "streaming" | "error" | "offline" | "unknown";
 
 interface StatusDotProps {
   status: Status;
@@ -12,6 +12,7 @@ const statusColors: Record<Status, string> = {
   streaming: "var(--status-streaming)",
   error: "var(--status-error)",
   offline: "var(--status-offline)",
+  unknown: "var(--text-secondary, #6b7280)",
 };
 
 export function StatusDot({ status, className = "" }: StatusDotProps) {

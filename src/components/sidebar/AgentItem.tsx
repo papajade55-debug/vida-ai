@@ -3,12 +3,21 @@ import type { ProviderInfo } from "@/src/lib/tauri";
 
 interface AgentItemProps {
   provider: ProviderInfo;
-  healthy: boolean;
+  healthy?: boolean;
   streaming: boolean;
 }
 
 export function AgentItem({ provider, healthy, streaming }: AgentItemProps) {
-  const status = streaming ? "streaming" : healthy ? "idle" : "offline";
+  let status: "streaming" | "idle" | "offline" | "unknown";
+  if (streaming) {
+    status = "streaming";
+  } else if (healthy === undefined) {
+    status = "unknown";
+  } else if (healthy) {
+    status = "idle";
+  } else {
+    status = "offline";
+  }
 
   return (
     <div className="flex items-center gap-2 px-3 py-1.5">
