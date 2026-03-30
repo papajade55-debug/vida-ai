@@ -203,6 +203,7 @@ impl VidaEngine {
         };
 
         engine.seed_default_provider_configs().await?;
+        engine.seed_default_mcp_configs().await?;
         engine.refresh_providers().await?;
 
         Ok(engine)
@@ -839,6 +840,36 @@ impl VidaEngine {
         self.db.ensure_provider_config("openrouter", "cloud", Some(DEFAULT_OPENROUTER_URL), Some(DEFAULT_OPENROUTER_MODEL)).await?;
         self.db.ensure_provider_config("zhipuai", "cloud", Some(DEFAULT_ZHIPUAI_URL), Some(DEFAULT_ZHIPUAI_MODEL)).await?;
         self.db.ensure_provider_config("dashscope", "cloud", Some(DEFAULT_DASHSCOPE_URL), Some(DEFAULT_DASHSCOPE_MODEL)).await?;
+        Ok(())
+    }
+
+    async fn seed_default_mcp_configs(&self) -> Result<(), VidaError> {
+        use vida_db::McpServerConfigRow;
+
+        let defaults = [
+            ("mcp-filesystem", "filesystem", "npx", r#"["-y","@modelcontextprotocol/server-filesystem","/home"]#),
+            ("mcp-fetch", "fetch", "npx", r#"["-y","@modelcontextprotocol/server-fetch"]"#),
+            ("mcp-memory", "memory", "npx", r#"["-y","@modelcontextprotocol/server-memory"]"#),
+            ("mcp-sequential-thinking", "sequential-thinking", "npx", r#"["-y","@modelcontextprotocol/server-sequential-thinking"]"#),
+        ];
+
+        for (id, name, command, args_json) in defaults {
+            // Only insert if not already present (don't overwrite user changes)
+            if self.db.get_mcp_server(id).await?.is_none() {
+                let config = McpServerConfigRow {
+                    id: id.to_string(),
+                    workspace_path: None,
+                    name: name.to_string(),
+                    command: command.to_string(),
+                    args_json: Some(args_json.to_string()),
+                    env_json: None,
+                    enabled: 1,
+                    created_at: String::new(),
+                };
+                self.db.upsert_mcp_server(&config).await?;
+            }
+        }
+
         Ok(())
     }
 
