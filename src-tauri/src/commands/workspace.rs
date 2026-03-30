@@ -1,8 +1,13 @@
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, State};
 use tokio::sync::RwLock;
-use vida_core::{VidaEngine, VidaError, WorkspaceConfig, PermissionMode};
+use vida_core::{
+    AccessAction, AccessResource, PermissionMode, VidaEngine, VidaError, WorkspaceConfig,
+};
 use vida_db::RecentWorkspaceRow;
+
+use super::access::require_access;
+use super::permissions::PermissionState;
 
 #[tauri::command]
 pub async fn open_workspace(
@@ -47,9 +52,22 @@ pub async fn get_workspace_config(
 
 #[tauri::command]
 pub async fn set_workspace_config(
+    app: AppHandle,
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
+    permissions: State<'_, PermissionState>,
     config: WorkspaceConfig,
 ) -> Result<(), String> {
+    require_access(
+        &app,
+        engine.inner(),
+        &permissions,
+        AccessAction::Modify,
+        AccessResource::IaConfig,
+        None,
+        "Modify workspace configuration".to_string(),
+    )
+    .await?;
+
     let mut e = engine.write().await;
     e.set_workspace_config(config)
         .map_err(|e: VidaError| e.to_string())
@@ -66,9 +84,22 @@ pub async fn get_permission_mode(
 
 #[tauri::command]
 pub async fn set_permission_mode(
+    app: AppHandle,
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
+    permissions: State<'_, PermissionState>,
     mode: PermissionMode,
 ) -> Result<(), String> {
+    require_access(
+        &app,
+        engine.inner(),
+        &permissions,
+        AccessAction::Modify,
+        AccessResource::IaConfig,
+        None,
+        format!("Change workspace permission mode to '{mode:?}'"),
+    )
+    .await?;
+
     let mut e = engine.write().await;
     e.set_permission_mode(mode)
         .map_err(|e: VidaError| e.to_string())

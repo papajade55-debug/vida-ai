@@ -35,6 +35,7 @@ export function TeamItem({ team, members, active, onClick, onDelete }: TeamItemP
               key={m.id}
               name={m.display_name || m.model}
               color={m.color}
+              role={m.role}
             />
           ))}
         </div>

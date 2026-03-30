@@ -15,6 +15,25 @@ pub struct RemoteState {
     pub server: Mutex<RemoteServer>,
 }
 
+#[cfg(feature = "remote")]
+impl Default for RemoteState {
+    fn default() -> Self {
+        Self {
+            server: Mutex::new(RemoteServer::new(3690)),
+        }
+    }
+}
+
+#[cfg(not(feature = "remote"))]
+pub struct RemoteState;
+
+#[cfg(not(feature = "remote"))]
+impl Default for RemoteState {
+    fn default() -> Self {
+        Self
+    }
+}
+
 // ── Remote status response ──
 
 #[derive(serde::Serialize)]
@@ -28,7 +47,7 @@ pub struct RemoteStatus {
 #[tauri::command]
 pub async fn enable_remote(
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
-    #[cfg(feature = "remote")] remote: State<'_, RemoteState>,
+    remote: State<'_, RemoteState>,
     port: u16,
 ) -> Result<(), String> {
     #[cfg(feature = "remote")]
@@ -55,18 +74,16 @@ pub async fn enable_remote(
 
     #[cfg(not(feature = "remote"))]
     {
-        let _ = (engine, port);
+        let _ = (engine, remote, port);
         Err("Remote feature is not enabled in this build".to_string())
     }
 }
 
 #[tauri::command]
-pub async fn disable_remote(
-    #[cfg(feature = "remote")] remote: State<'_, RemoteState>,
-) -> Result<(), String> {
+pub async fn disable_remote(_remote: State<'_, RemoteState>) -> Result<(), String> {
     #[cfg(feature = "remote")]
     {
-        let mut server = remote.server.lock().await;
+        let mut server = _remote.server.lock().await;
         server.stop();
         Ok(())
     }
@@ -78,12 +95,10 @@ pub async fn disable_remote(
 }
 
 #[tauri::command]
-pub async fn get_remote_status(
-    #[cfg(feature = "remote")] remote: State<'_, RemoteState>,
-) -> Result<RemoteStatus, String> {
+pub async fn get_remote_status(_remote: State<'_, RemoteState>) -> Result<RemoteStatus, String> {
     #[cfg(feature = "remote")]
     {
-        let server = remote.server.lock().await;
+        let server = _remote.server.lock().await;
         Ok(RemoteStatus {
             enabled: server.is_running(),
             port: server.port(),
@@ -104,13 +119,36 @@ pub async fn get_remote_token(
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
 ) -> Result<String, String> {
     let e = engine.read().await;
-    e.get_remote_token().map_err(|e| e.to_string())
+    match e.get_remote_token() {
+        Ok(token) => Ok(token),
+        Err(_) => e.generate_remote_token().map_err(|e| e.to_string()),
+    }
 }
 
 #[tauri::command]
 pub async fn regenerate_remote_token(
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
+    _remote: State<'_, RemoteState>,
 ) -> Result<String, String> {
-    let e = engine.read().await;
-    e.generate_remote_token().map_err(|e| e.to_string())
+    let token = {
+        let e = engine.read().await;
+        e.generate_remote_token().map_err(|e| e.to_string())?
+    };
+
+    #[cfg(feature = "remote")]
+    {
+        let engine_arc = engine.inner().clone();
+        let mut server = _remote.server.lock().await;
+        if server.is_running() {
+            let port = server.port();
+            server.stop();
+            *server = RemoteServer::new(port);
+            server
+                .start(engine_arc, token.clone())
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(token)
 }

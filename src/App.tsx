@@ -1,3 +1,4 @@
+import { AuthGate } from "@/src/components/auth/AuthGate";
 import { AppLayout } from "@/src/components/layout/AppLayout";
 import { ChatArea } from "@/src/components/chat/ChatArea";
 import { SettingsModal } from "@/src/components/settings/SettingsModal";
@@ -8,9 +9,11 @@ export default function App() {
   useTheme();
 
   return (
-    <AppLayout>
-      <ChatArea />
-      <SettingsModal />
-    </AppLayout>
+    <AuthGate>
+      <AppLayout>
+        <ChatArea />
+        <SettingsModal />
+      </AppLayout>
+    </AuthGate>
   );
 }

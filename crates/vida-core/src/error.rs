@@ -1,7 +1,7 @@
+use crate::mcp::McpError;
 use vida_db::DbError;
 use vida_providers::traits::ProviderError;
 use vida_security::SecurityError;
-use crate::mcp::McpError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum VidaError {
@@ -21,6 +21,8 @@ pub enum VidaError {
     Config(String),
     #[error("Remote: {0}")]
     Remote(String),
+    #[error("Authentication: {0}")]
+    Authentication(String),
 }
 
 // Serialize for Tauri commands

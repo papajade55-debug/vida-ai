@@ -1,8 +1,10 @@
+pub mod access;
 pub mod auth;
-pub mod providers;
 pub mod chat;
 pub mod config;
 pub mod mcp;
+pub mod permissions;
+pub mod providers;
 pub mod remote;
 pub mod teams;
 pub mod workspace;

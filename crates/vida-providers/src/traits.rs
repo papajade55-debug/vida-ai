@@ -8,12 +8,17 @@ pub enum ChatRole {
     System,
     User,
     Assistant,
+    Tool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: ChatRole,
     pub content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -30,6 +35,8 @@ pub struct CompletionOptions {
     pub top_k: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub repeat_penalty: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolDefinition>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +46,8 @@ pub struct CompletionResponse {
     pub prompt_tokens: u32,
     pub completion_tokens: u32,
     pub total_tokens: u32,
+    #[serde(default)]
+    pub tool_calls: Vec<ToolCall>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +55,20 @@ pub enum StreamEvent {
     Token { content: String },
     Error { error: String },
     Done,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub name: String,
+    pub arguments: serde_json::Value,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -57,7 +80,8 @@ pub enum ProviderType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderInfo {
-    pub name: String,
+    pub id: String,
+    pub display_name: String,
     pub provider_type: ProviderType,
     pub models: Vec<String>,
 }
@@ -126,6 +150,8 @@ mod tests {
         let msg = ChatMessage {
             role: ChatRole::System,
             content: "You are helpful.".to_string(),
+            tool_call_id: None,
+            name: None,
         };
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"system\""));
@@ -146,7 +172,9 @@ mod tests {
 
     #[test]
     fn test_stream_event_variants() {
-        let token = StreamEvent::Token { content: "Hello".to_string() };
+        let token = StreamEvent::Token {
+            content: "Hello".to_string(),
+        };
         let json = serde_json::to_string(&token).unwrap();
         assert!(json.contains("Token"));
         assert!(json.contains("Hello"));
@@ -160,5 +188,33 @@ mod tests {
     fn test_provider_type_serialization() {
         let json = serde_json::to_string(&ProviderType::Local).unwrap();
         assert_eq!(json, "\"local\"");
+    }
+
+    #[test]
+    fn test_tool_definition_serde() {
+        let t = ToolDefinition {
+            name: "rf".into(),
+            description: "d".into(),
+            parameters: serde_json::json!({"type":"object"}),
+        };
+        let j = serde_json::to_string(&t).unwrap();
+        assert!(j.contains("rf"));
+    }
+
+    #[test]
+    fn test_tool_call_serde() {
+        let c = ToolCall {
+            id: "c1".into(),
+            name: "rf".into(),
+            arguments: serde_json::json!({"p":"v"}),
+        };
+        let j = serde_json::to_string(&c).unwrap();
+        assert!(j.contains("c1"));
+    }
+
+    #[test]
+    fn test_chat_role_tool() {
+        let j = serde_json::to_string(&ChatRole::Tool).unwrap();
+        assert_eq!(j, "\"tool\"");
     }
 }

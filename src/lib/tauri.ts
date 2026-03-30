@@ -4,9 +4,32 @@ import { listen } from "@tauri-apps/api/event";
 // ── Types mirroring Rust structs ──
 
 export interface ProviderInfo {
-  name: string;
+  id: string;
+  display_name: string;
   provider_type: "local" | "cloud";
   models: string[];
+}
+
+export type TeamRole = "owner" | "admin" | "member" | "viewer";
+export type ActorRole = "super_admin" | "architect" | "operator" | "agent";
+
+export interface AuthSession {
+  user_id: string;
+  username: string;
+  role: ActorRole;
+}
+
+export interface AuthStatus {
+  has_users: boolean;
+  actor: AuthSession | null;
+}
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  role: ActorRole;
+  active: boolean;
+  created_at: string;
 }
 
 export interface SessionRow {
@@ -59,7 +82,7 @@ export interface TeamMemberRow {
   model: string;
   display_name: string | null;
   color: string;
-  role: string | null;
+  role: TeamRole | null;
   created_at: string;
 }
 
@@ -141,6 +164,17 @@ export interface McpServerConfigRow {
 export const api = {
   // Auth
   isPinConfigured: () => invoke<boolean>("is_pin_configured"),
+  getAuthStatus: () => invoke<AuthStatus>("get_auth_status"),
+  bootstrapLocalAdmin: (username: string, password: string) =>
+    invoke<AuthSession>("bootstrap_local_admin", { username, password }),
+  loginLocal: (username: string, password: string) =>
+    invoke<AuthSession>("login_local", { username, password }),
+  logoutLocal: () => invoke<void>("logout_local"),
+  listUsers: () => invoke<AuthUser[]>("list_users"),
+  createUser: (username: string, password: string, role: ActorRole) =>
+    invoke<AuthUser>("create_user", { username, password, role }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    invoke<void>("change_password", { currentPassword, newPassword }),
   storeApiKey: (providerId: string, key: string) =>
     invoke<void>("store_api_key", { providerId, key }),
   removeApiKey: (providerId: string) =>
@@ -174,6 +208,8 @@ export const api = {
   listTeams: () => invoke<TeamRow[]>("list_teams"),
   getTeam: (teamId: string) =>
     invoke<[TeamRow, TeamMemberRow[]]>("get_team", { teamId }),
+  setTeamMemberRole: (teamId: string, memberId: string, role: TeamRole) =>
+    invoke<TeamMemberRow>("set_team_member_role", { teamId, memberId, role }),
   deleteTeam: (teamId: string) =>
     invoke<void>("delete_team", { teamId }),
   createTeamSession: (teamId: string) =>
@@ -219,7 +255,7 @@ export const api = {
   // Remote
   enableRemote: (port: number) => invoke<void>("enable_remote", { port }),
   disableRemote: () => invoke<void>("disable_remote"),
-  getRemoteStatus: () => invoke<{ running: boolean; port: number | null }>("get_remote_status"),
+  getRemoteStatus: () => invoke<{ enabled: boolean; port: number }>("get_remote_status"),
   getRemoteToken: () => invoke<string>("get_remote_token"),
   regenerateRemoteToken: () => invoke<string>("regenerate_remote_token"),
 };

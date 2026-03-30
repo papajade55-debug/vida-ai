@@ -113,10 +113,22 @@ mod tests {
     fn test_yolo_mode_always_allows() {
         let manager = PermissionManager::new(PermissionMode::Yolo, PermissionConfig::default());
 
-        assert_eq!(manager.check(PermissionType::FileRead), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::FileWrite), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::ShellExecute), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::NetworkAccess), PermissionResult::Allowed);
+        assert_eq!(
+            manager.check(PermissionType::FileRead),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::FileWrite),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::ShellExecute),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::NetworkAccess),
+            PermissionResult::Allowed
+        );
     }
 
     #[test]
@@ -124,11 +136,23 @@ mod tests {
         let manager = PermissionManager::new(PermissionMode::Ask, PermissionConfig::default());
 
         // file_read and network_access are true by default
-        assert_eq!(manager.check(PermissionType::FileRead), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::NetworkAccess), PermissionResult::Allowed);
+        assert_eq!(
+            manager.check(PermissionType::FileRead),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::NetworkAccess),
+            PermissionResult::Allowed
+        );
         // file_write and shell_execute are false by default
-        assert_eq!(manager.check(PermissionType::FileWrite), PermissionResult::NeedsApproval);
-        assert_eq!(manager.check(PermissionType::ShellExecute), PermissionResult::NeedsApproval);
+        assert_eq!(
+            manager.check(PermissionType::FileWrite),
+            PermissionResult::NeedsApproval
+        );
+        assert_eq!(
+            manager.check(PermissionType::ShellExecute),
+            PermissionResult::NeedsApproval
+        );
     }
 
     #[test]
@@ -136,11 +160,23 @@ mod tests {
         let manager = PermissionManager::new(PermissionMode::Sandbox, PermissionConfig::default());
 
         // file_read and network_access are true by default
-        assert_eq!(manager.check(PermissionType::FileRead), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::NetworkAccess), PermissionResult::Allowed);
+        assert_eq!(
+            manager.check(PermissionType::FileRead),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::NetworkAccess),
+            PermissionResult::Allowed
+        );
         // file_write and shell_execute are denied (not NeedsApproval)
-        assert_eq!(manager.check(PermissionType::FileWrite), PermissionResult::Denied);
-        assert_eq!(manager.check(PermissionType::ShellExecute), PermissionResult::Denied);
+        assert_eq!(
+            manager.check(PermissionType::FileWrite),
+            PermissionResult::Denied
+        );
+        assert_eq!(
+            manager.check(PermissionType::ShellExecute),
+            PermissionResult::Denied
+        );
     }
 
     #[test]
@@ -153,10 +189,22 @@ mod tests {
         };
         let manager = PermissionManager::new(PermissionMode::Sandbox, config);
 
-        assert_eq!(manager.check(PermissionType::FileRead), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::FileWrite), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::ShellExecute), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::NetworkAccess), PermissionResult::Allowed);
+        assert_eq!(
+            manager.check(PermissionType::FileRead),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::FileWrite),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::ShellExecute),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::NetworkAccess),
+            PermissionResult::Allowed
+        );
     }
 
     #[test]
@@ -169,8 +217,14 @@ mod tests {
         };
         let manager = PermissionManager::new(PermissionMode::Ask, config);
 
-        assert_eq!(manager.check(PermissionType::FileWrite), PermissionResult::Allowed);
-        assert_eq!(manager.check(PermissionType::ShellExecute), PermissionResult::Allowed);
+        assert_eq!(
+            manager.check(PermissionType::FileWrite),
+            PermissionResult::Allowed
+        );
+        assert_eq!(
+            manager.check(PermissionType::ShellExecute),
+            PermissionResult::Allowed
+        );
     }
 
     #[test]

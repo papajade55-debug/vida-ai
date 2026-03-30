@@ -1,0 +1,14 @@
+[package]
+name = "vida-headless"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = ["remote"]
+remote = ["vida-core/remote"]
+telegram = ["vida-core/telegram", "remote"]
+
+[dependencies]
+tokio = { workspace = true }
+vida-core = { path = "../vida-core" }
+

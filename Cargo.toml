@@ -4,6 +4,7 @@ members = [
     "crates/vida-security",
     "crates/vida-db",
     "crates/vida-core",
+    "crates/vida-headless",
     "src-tauri",
 ]
 resolver = "2"

@@ -18,9 +18,9 @@ export function AgentList() {
     <div className="flex flex-col">
       {providers.map((provider) => (
         <AgentItem
-          key={provider.name}
+          key={provider.id}
           provider={provider}
-          healthy={health[provider.name] ?? false}
+          healthy={health[provider.id] ?? false}
           streaming={streamingMessageId !== null}
         />
       ))}

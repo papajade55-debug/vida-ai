@@ -34,6 +34,8 @@ struct GeminiRequest {
     system_instruction: Option<GeminiContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     generation_config: Option<GeminiGenerationConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<GeminiTool>>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -43,21 +45,51 @@ struct GeminiContent {
     parts: Vec<GeminiPart>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-enum GeminiPart {
-    Text {
-        text: String,
-    },
-    InlineData {
-        inline_data: GeminiInlineData,
-    },
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+struct GeminiPart {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inline_data: Option<GeminiInlineData>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    function_call: Option<GeminiFunctionCall>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    function_response: Option<GeminiFunctionResponse>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 struct GeminiInlineData {
     mime_type: String,
     data: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GeminiTool {
+    function_declarations: Vec<GeminiFunctionDeclaration>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GeminiFunctionDeclaration {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct GeminiFunctionCall {
+    name: String,
+    args: serde_json::Value,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct GeminiFunctionResponse {
+    name: String,
+    response: serde_json::Value,
 }
 
 #[derive(Serialize)]
@@ -132,23 +164,52 @@ fn extract_system_and_contents(
     for m in messages {
         match m.role {
             ChatRole::System => {
-                system_parts.push(GeminiPart::Text {
-                    text: m.content.clone(),
+                system_parts.push(GeminiPart {
+                    text: Some(m.content.clone()),
+                    ..Default::default()
                 });
             }
             ChatRole::User => {
                 contents.push(GeminiContent {
                     role: Some("user".to_string()),
-                    parts: vec![GeminiPart::Text {
-                        text: m.content.clone(),
+                    parts: vec![GeminiPart {
+                        text: Some(m.content.clone()),
+                        ..Default::default()
                     }],
                 });
             }
             ChatRole::Assistant => {
+                if let Some(name) = &m.name {
+                    contents.push(GeminiContent {
+                        role: Some("model".to_string()),
+                        parts: vec![GeminiPart {
+                            function_call: Some(GeminiFunctionCall {
+                                name: name.clone(),
+                                args: extract_tool_call_arguments(&m.content)
+                                    .unwrap_or_else(|| serde_json::json!({})),
+                            }),
+                            ..Default::default()
+                        }],
+                    });
+                } else {
+                    contents.push(GeminiContent {
+                        role: Some("model".to_string()),
+                        parts: vec![GeminiPart {
+                            text: Some(m.content.clone()),
+                            ..Default::default()
+                        }],
+                    });
+                }
+            }
+            ChatRole::Tool => {
                 contents.push(GeminiContent {
-                    role: Some("model".to_string()),
-                    parts: vec![GeminiPart::Text {
-                        text: m.content.clone(),
+                    role: Some("user".to_string()),
+                    parts: vec![GeminiPart {
+                        function_response: Some(GeminiFunctionResponse {
+                            name: m.name.clone().unwrap_or_default(),
+                            response: serde_json::json!({ "result": m.content }),
+                        }),
+                        ..Default::default()
                     }],
                 });
             }
@@ -165,6 +226,44 @@ fn extract_system_and_contents(
     };
 
     (system_instruction, contents)
+}
+
+fn to_gemini_tools(options: &Option<CompletionOptions>) -> Option<Vec<GeminiTool>> {
+    options.as_ref().and_then(|opts| {
+        opts.tools.as_ref().map(|tools| {
+            vec![GeminiTool {
+                function_declarations: tools
+                    .iter()
+                    .map(|tool| GeminiFunctionDeclaration {
+                        name: tool.name.clone(),
+                        description: tool.description.clone(),
+                        parameters: tool.parameters.clone(),
+                    })
+                    .collect(),
+            }]
+        })
+    })
+}
+
+fn extract_tool_call_arguments(content: &str) -> Option<serde_json::Value> {
+    let start = content.find("<tool_call>")?;
+    let after = &content[start + "<tool_call>".len()..];
+    let end = after.find("</tool_call>")?;
+    let payload: serde_json::Value = serde_json::from_str(after[..end].trim()).ok()?;
+    payload.get("arguments").cloned()
+}
+
+fn parse_gemini_tool_calls(parts: &[GeminiPart]) -> Vec<ToolCall> {
+    parts
+        .iter()
+        .filter_map(|part| {
+            part.function_call.as_ref().map(|call| ToolCall {
+                id: format!("{}_call", call.name),
+                name: call.name.clone(),
+                arguments: call.args.clone(),
+            })
+        })
+        .collect()
 }
 
 #[async_trait]
@@ -192,6 +291,7 @@ impl LLMProvider for GoogleProvider {
             contents,
             system_instruction,
             generation_config,
+            tools: to_gemini_tools(&options),
         };
 
         let url = format!(
@@ -225,10 +325,7 @@ impl LLMProvider for GoogleProvider {
             .content
             .parts
             .iter()
-            .filter_map(|p| match p {
-                GeminiPart::Text { text } => Some(text.clone()),
-                _ => None,
-            })
+            .filter_map(|p| p.text.clone())
             .collect::<Vec<_>>()
             .join("");
 
@@ -238,9 +335,7 @@ impl LLMProvider for GoogleProvider {
             total_token_count: 0,
         });
 
-        let model_name = gemini_resp
-            .model_version
-            .unwrap_or_else(|| model.clone());
+        let model_name = gemini_resp.model_version.unwrap_or_else(|| model.clone());
 
         Ok(CompletionResponse {
             content,
@@ -248,6 +343,7 @@ impl LLMProvider for GoogleProvider {
             prompt_tokens: usage.prompt_token_count,
             completion_tokens: usage.candidates_token_count,
             total_tokens: usage.total_token_count,
+            tool_calls: parse_gemini_tool_calls(&candidate.content.parts),
         })
     }
 
@@ -275,6 +371,7 @@ impl LLMProvider for GoogleProvider {
             contents,
             system_instruction,
             generation_config,
+            tools: to_gemini_tools(&options),
         };
 
         let url = format!(
@@ -286,7 +383,11 @@ impl LLMProvider for GoogleProvider {
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            let _ = tx.send(StreamEvent::Error { error: body.clone() }).await;
+            let _ = tx
+                .send(StreamEvent::Error {
+                    error: body.clone(),
+                })
+                .await;
             let _ = tx.send(StreamEvent::Done).await;
             return Err(ProviderError::Api(body));
         }
@@ -312,7 +413,7 @@ impl LLMProvider for GoogleProvider {
                             Ok(resp) => {
                                 if let Some(candidate) = resp.candidates.first() {
                                     for part in &candidate.content.parts {
-                                        if let GeminiPart::Text { text } = part {
+                                        if let Some(text) = &part.text {
                                             if !text.is_empty() {
                                                 let _ = tx
                                                     .send(StreamEvent::Token {
@@ -320,6 +421,13 @@ impl LLMProvider for GoogleProvider {
                                                     })
                                                     .await;
                                             }
+                                        }
+                                        if let Some(fc) = &part.function_call {
+                                            let tag = format!(
+                                                "<tool_call>{{\"id\":\"{}_call\",\"name\":\"{}\",\"arguments\":{}}}</tool_call>",
+                                                fc.name, fc.name, fc.args
+                                            );
+                                            let _ = tx.send(StreamEvent::Token { content: tag }).await;
                                         }
                                     }
                                 }
@@ -335,7 +443,11 @@ impl LLMProvider for GoogleProvider {
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                    let _ = tx
+                        .send(StreamEvent::Error {
+                            error: e.to_string(),
+                        })
+                        .await;
                     let _ = tx.send(StreamEvent::Done).await;
                     return Err(ProviderError::Network(e));
                 }
@@ -362,23 +474,23 @@ impl LLMProvider for GoogleProvider {
         let contents = vec![GeminiContent {
             role: Some("user".to_string()),
             parts: vec![
-                GeminiPart::Text {
-                    text: prompt.to_string(),
+                GeminiPart {
+                    text: Some(prompt.to_string()),
+                    ..Default::default()
                 },
-                GeminiPart::InlineData {
-                    inline_data: GeminiInlineData {
+                GeminiPart {
+                    inline_data: Some(GeminiInlineData {
                         mime_type: "image/png".to_string(),
                         data: b64,
-                    },
+                    }),
+                    ..Default::default()
                 },
             ],
         }];
 
         let generation_config = Some(GeminiGenerationConfig {
             temperature: options.as_ref().and_then(|o| o.temperature),
-            max_output_tokens: Some(
-                options.as_ref().and_then(|o| o.max_tokens).unwrap_or(1024),
-            ),
+            max_output_tokens: Some(options.as_ref().and_then(|o| o.max_tokens).unwrap_or(1024)),
             top_p: options.as_ref().and_then(|o| o.top_p),
             top_k: options.as_ref().and_then(|o| o.top_k),
         });
@@ -387,6 +499,7 @@ impl LLMProvider for GoogleProvider {
             contents,
             system_instruction: None,
             generation_config,
+            tools: None,
         };
 
         let url = format!(
@@ -411,10 +524,7 @@ impl LLMProvider for GoogleProvider {
             .content
             .parts
             .iter()
-            .filter_map(|p| match p {
-                GeminiPart::Text { text } => Some(text.clone()),
-                _ => None,
-            })
+            .filter_map(|p| p.text.clone())
             .collect::<Vec<_>>()
             .join("");
 
@@ -430,14 +540,12 @@ impl LLMProvider for GoogleProvider {
             prompt_tokens: usage.prompt_token_count,
             completion_tokens: usage.candidates_token_count,
             total_tokens: usage.total_token_count,
+            tool_calls: vec![],
         })
     }
 
     async fn health_check(&self) -> Result<(), ProviderError> {
-        let url = format!(
-            "{}/v1beta/models?key={}",
-            self.base_url, self.api_key
-        );
+        let url = format!("{}/v1beta/models?key={}", self.base_url, self.api_key);
 
         let resp = self.client.get(&url).send().await?;
 
@@ -453,17 +561,15 @@ impl LLMProvider for GoogleProvider {
 
     fn info(&self) -> ProviderInfo {
         ProviderInfo {
-            name: "Google".to_string(),
+            id: "google".to_string(),
+            display_name: "Google".to_string(),
             provider_type: ProviderType::Cloud,
             models: vec![],
         }
     }
 
     async fn list_models(&self) -> Result<Vec<String>, ProviderError> {
-        let url = format!(
-            "{}/v1beta/models?key={}",
-            self.base_url, self.api_key
-        );
+        let url = format!("{}/v1beta/models?key={}", self.base_url, self.api_key);
 
         let resp = self.client.get(&url).send().await?;
 
@@ -504,7 +610,8 @@ mod tests {
             "gemini-2.0-flash",
         );
         let info = provider.info();
-        assert_eq!(info.name, "Google");
+        assert_eq!(info.id, "google");
+        assert_eq!(info.display_name, "Google");
         assert_eq!(info.provider_type, ProviderType::Cloud);
     }
 
@@ -514,14 +621,20 @@ mod tests {
             ChatMessage {
                 role: ChatRole::System,
                 content: "You are helpful.".to_string(),
+                tool_call_id: None,
+                name: None,
             },
             ChatMessage {
                 role: ChatRole::User,
                 content: "Hi".to_string(),
+                tool_call_id: None,
+                name: None,
             },
             ChatMessage {
                 role: ChatRole::Assistant,
                 content: "Hello!".to_string(),
+                tool_call_id: None,
+                name: None,
             },
         ];
         let (system, contents) = extract_system_and_contents(&messages);
@@ -529,6 +642,45 @@ mod tests {
         assert_eq!(contents.len(), 2);
         assert_eq!(contents[0].role, Some("user".to_string()));
         assert_eq!(contents[1].role, Some("model".to_string()));
+        assert_eq!(contents[0].parts[0].text.as_deref(), Some("Hi"));
+    }
+
+    #[test]
+    fn test_extract_system_and_contents_with_tool_messages() {
+        let messages = vec![
+            ChatMessage {
+                role: ChatRole::Assistant,
+                content: r#"<tool_call>{"id":"call_1","name":"read_file","arguments":{"path":"/tmp/demo.txt"}}</tool_call>"#.to_string(),
+                tool_call_id: Some("call_1".to_string()),
+                name: Some("read_file".to_string()),
+            },
+            ChatMessage {
+                role: ChatRole::Tool,
+                content: "demo file content".to_string(),
+                tool_call_id: Some("call_1".to_string()),
+                name: Some("read_file".to_string()),
+            },
+        ];
+
+        let (_, contents) = extract_system_and_contents(&messages);
+        assert_eq!(contents.len(), 2);
+        assert!(contents[0].parts[0].function_call.is_some());
+        assert!(contents[1].parts[0].function_response.is_some());
+    }
+
+    #[test]
+    fn test_parse_gemini_tool_calls() {
+        let calls = parse_gemini_tool_calls(&[GeminiPart {
+            function_call: Some(GeminiFunctionCall {
+                name: "read_file".to_string(),
+                args: serde_json::json!({"path":"/tmp/demo.txt"}),
+            }),
+            ..Default::default()
+        }]);
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].arguments["path"], "/tmp/demo.txt");
     }
 
     #[test]

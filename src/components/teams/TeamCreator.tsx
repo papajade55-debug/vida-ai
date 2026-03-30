@@ -25,10 +25,15 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
 
   // Build flat list of provider/model pairs
   const allModels = useMemo(() => {
-    const models: { providerId: string; model: string; label: string }[] = [];
+    const models: { key: string; providerId: string; model: string; label: string }[] = [];
     for (const p of providers) {
       for (const m of p.models) {
-        models.push({ providerId: p.name, model: m, label: `${p.name}/${m}` });
+        models.push({
+          key: `${p.id}/${m}`,
+          providerId: p.id,
+          model: m,
+          label: `${p.display_name}/${m}`,
+        });
       }
     }
     return models;
@@ -47,7 +52,7 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
   };
 
   const selectedEntries = useMemo(() => {
-    return allModels.filter((m) => selected.has(m.label));
+    return allModels.filter((m) => selected.has(m.key));
   }, [allModels, selected]);
 
   const handleCreate = async () => {
@@ -97,10 +102,10 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
           </label>
           <div className="grid grid-cols-1 gap-1">
             {allModels.map((m) => {
-              const isChecked = selected.has(m.label);
+              const isChecked = selected.has(m.key);
               return (
                 <label
-                  key={m.label}
+                  key={m.key}
                   className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius)] cursor-pointer transition-colors"
                   style={{
                     background: isChecked ? "rgba(99, 102, 241, 0.1)" : "transparent",
@@ -110,7 +115,7 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
                   <input
                     type="checkbox"
                     checked={isChecked}
-                    onChange={() => toggleModel(m.label)}
+                    onChange={() => toggleModel(m.key)}
                     className="accent-[var(--accent)]"
                   />
                   <span className="text-sm" style={{ color: "var(--text-primary)" }}>
@@ -131,9 +136,10 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
             <div className="flex flex-wrap gap-1">
               {selectedEntries.map((entry, i) => (
                 <TeamMemberBadge
-                  key={entry.label}
+                  key={entry.key}
                   name={entry.label}
                   color={TEAM_COLORS[i % TEAM_COLORS.length]}
+                  role={i === 0 ? "owner" : "member"}
                 />
               ))}
             </div>

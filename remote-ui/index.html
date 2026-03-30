@@ -1,0 +1,964 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vida Remote Control</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --bg-elev: rgba(17, 24, 39, 0.88);
+        --bg-soft: rgba(15, 23, 42, 0.72);
+        --border: rgba(148, 163, 184, 0.22);
+        --text: #e5eefb;
+        --muted: #94a3b8;
+        --accent: #22c55e;
+        --accent-2: #38bdf8;
+        --warn: #f59e0b;
+        --danger: #ef4444;
+        --shadow: 0 24px 80px rgba(2, 6, 23, 0.45);
+        --radius: 18px;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", "Inter", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 22%),
+          radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 18%),
+          linear-gradient(180deg, #0b1020 0%, #0f172a 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        width: min(1520px, calc(100vw - 32px));
+        margin: 24px auto 40px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding: 28px;
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.72));
+        backdrop-filter: blur(18px);
+        box-shadow: var(--shadow);
+        margin-bottom: 20px;
+      }
+
+      .hero h1 {
+        margin: 0 0 8px;
+        font-size: clamp(28px, 5vw, 44px);
+        letter-spacing: -0.03em;
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 780px;
+        line-height: 1.5;
+      }
+
+      .hero-status {
+        min-width: 260px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border-radius: 999px;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        background: rgba(34, 197, 94, 0.16);
+        border: 1px solid rgba(34, 197, 94, 0.28);
+      }
+
+      .badge.warn {
+        background: rgba(245, 158, 11, 0.16);
+        border-color: rgba(245, 158, 11, 0.28);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        grid-column: span 12;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg-elev);
+        backdrop-filter: blur(18px);
+        padding: 18px;
+        box-shadow: var(--shadow);
+      }
+
+      .span-4 { grid-column: span 4; }
+      .span-5 { grid-column: span 5; }
+      .span-6 { grid-column: span 6; }
+      .span-7 { grid-column: span 7; }
+      .span-8 { grid-column: span 8; }
+
+      .card h2 {
+        margin: 0 0 6px;
+        font-size: 17px;
+      }
+
+      .subtle {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        margin: 0 0 14px;
+      }
+
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      input, select, textarea, button {
+        font: inherit;
+      }
+
+      input, select, textarea {
+        width: 100%;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(15, 23, 42, 0.86);
+        color: var(--text);
+        padding: 12px 14px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 11px 14px;
+        cursor: pointer;
+        color: #04111f;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--accent) 0%, #86efac 100%);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(59, 130, 246, 0.22));
+        border: 1px solid rgba(56, 189, 248, 0.28);
+      }
+
+      button.ghost {
+        color: var(--text);
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+      }
+
+      button.danger {
+        color: white;
+        background: linear-gradient(135deg, rgba(239, 68, 68, 0.92), rgba(248, 113, 113, 0.92));
+      }
+
+      pre, code {
+        font-family: "SFMono-Regular", Consolas, monospace;
+      }
+
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px;
+        color: #cbd5e1;
+        max-height: 380px;
+        overflow: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 10px 8px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(15, 23, 42, 0.6);
+      }
+
+      .metric-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric {
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(15, 23, 42, 0.42);
+      }
+
+      .metric .label {
+        color: var(--muted);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .metric .value {
+        margin-top: 8px;
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .status-line {
+        min-height: 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .status-line.error {
+        color: #fca5a5;
+      }
+
+      .status-line.ok {
+        color: #86efac;
+      }
+
+      .hidden { display: none !important; }
+
+      @media (max-width: 1100px) {
+        .hero { flex-direction: column; }
+        .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div>
+          <div class="badge" id="heroBadge">Vida Remote Control</div>
+          <h1>Control Plane Web</h1>
+          <p>
+            Interface web distante servie directement par le conteneur headless. Elle pilote l’API
+            remote sécurisée déjà exposée sur ce nœud: bootstrap/login, état santé, utilisateurs,
+            providers, sessions, chat simple et audit.
+          </p>
+        </div>
+        <div class="hero-status">
+          <div class="metric">
+            <div class="label">Cible</div>
+            <div class="value" id="targetOrigin">same-origin</div>
+          </div>
+          <div class="metric">
+            <div class="label">TLS</div>
+            <div class="value" id="targetTls">HTTPS</div>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="card span-4">
+          <h2>Connexion Service</h2>
+          <p class="subtle">Le token de service remote est requis pour toutes les routes API sauf la santé publique.</p>
+          <div class="stack">
+            <label>
+              Service token
+              <input id="serviceToken" type="password" placeholder="Coller le contenu de /var/lib/vida-ai/.token" />
+            </label>
+            <div class="row">
+              <button id="saveTokenBtn">Enregistrer</button>
+              <button id="checkHealthBtn" class="secondary">Tester la santé</button>
+              <button id="clearTokenBtn" class="ghost">Effacer</button>
+            </div>
+            <div id="serviceStatus" class="status-line"></div>
+          </div>
+        </section>
+
+        <section class="card span-4">
+          <h2>Authentification</h2>
+          <p class="subtle">Bootstrap si aucun utilisateur n’existe, sinon login distant avec session `x-vida-session`.</p>
+          <div class="stack">
+            <label>
+              Username
+              <input id="username" type="text" placeholder="admin.local" />
+            </label>
+            <label>
+              Password
+              <input id="password" type="password" placeholder="Mot de passe" />
+            </label>
+            <div class="row">
+              <button id="bootstrapBtn">Bootstrap</button>
+              <button id="loginBtn" class="secondary">Login</button>
+              <button id="logoutBtn" class="danger">Logout</button>
+            </div>
+            <div id="authStatus" class="status-line"></div>
+          </div>
+        </section>
+
+        <section class="card span-4">
+          <h2>Session Courante</h2>
+          <p class="subtle">État de session distante et rôle effectif appliqué par le backend.</p>
+          <div class="stack">
+            <div class="metric-grid">
+              <div class="metric">
+                <div class="label">Has Users</div>
+                <div class="value" id="hasUsersMetric">?</div>
+              </div>
+              <div class="metric">
+                <div class="label">Rôle</div>
+                <div class="value" id="roleMetric">-</div>
+              </div>
+            </div>
+            <pre id="authPayload">Aucune session distante active.</pre>
+          </div>
+        </section>
+
+        <section class="card span-4">
+          <h2>Health</h2>
+          <p class="subtle">Santé publique et santé admin enrichie.</p>
+          <div class="row">
+            <button id="refreshHealthBtn">Rafraîchir</button>
+          </div>
+          <pre id="healthPayload">En attente…</pre>
+        </section>
+
+        <section class="card span-8">
+          <h2>Utilisateurs</h2>
+          <p class="subtle">Création limitée à `architect` et `operator` côté backend.</p>
+          <div class="row" style="margin-bottom: 14px;">
+            <label style="flex: 1 1 220px;">
+              Username
+              <input id="newUsername" type="text" placeholder="operator.local" />
+            </label>
+            <label style="flex: 1 1 220px;">
+              Password
+              <input id="newPassword" type="password" placeholder="Mot de passe" />
+            </label>
+            <label style="flex: 0 1 180px;">
+              Role
+              <select id="newRole">
+                <option value="architect">architect</option>
+                <option value="operator">operator</option>
+              </select>
+            </label>
+          </div>
+          <div class="row" style="margin-bottom: 14px;">
+            <button id="createUserBtn">Créer utilisateur</button>
+            <button id="refreshUsersBtn" class="secondary">Rafraîchir</button>
+          </div>
+          <div id="usersStatus" class="status-line"></div>
+          <div style="overflow:auto;">
+            <table>
+              <thead>
+                <tr><th>Username</th><th>Role</th><th>Active</th><th>Created</th></tr>
+              </thead>
+              <tbody id="usersTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="card span-5">
+          <h2>Providers</h2>
+          <p class="subtle">Inventaire runtime effectivement chargé sur le moteur headless.</p>
+          <div class="row" style="margin-bottom: 14px;">
+            <button id="refreshProvidersBtn">Rafraîchir</button>
+          </div>
+          <pre id="providersPayload">[]</pre>
+        </section>
+
+        <section class="card span-7">
+          <h2>Sessions & Chat</h2>
+          <p class="subtle">Création de session distante, chat simple, streaming WebSocket et historique.</p>
+          <div class="row" style="margin-bottom: 14px;">
+            <label style="flex: 1 1 220px;">
+              Provider
+              <select id="providerSelect"></select>
+            </label>
+            <label style="flex: 1 1 220px;">
+              Model
+              <select id="modelSelect"></select>
+            </label>
+          </div>
+          <div class="row" style="margin-bottom: 14px;">
+            <button id="createSessionBtn">Créer session</button>
+            <button id="refreshSessionsBtn" class="secondary">Rafraîchir</button>
+            <button id="deleteSessionBtn" class="ghost">Supprimer session</button>
+          </div>
+          <label style="margin-bottom: 14px;">
+            Session active
+            <select id="sessionSelect"></select>
+          </label>
+          <label>
+            Prompt
+            <textarea id="chatPrompt" placeholder="Écrire un prompt de test"></textarea>
+          </label>
+          <div class="row" style="margin: 14px 0;">
+            <button id="sendPromptBtn">Envoyer</button>
+            <button id="streamPromptBtn" class="secondary">Streaming</button>
+            <button id="loadMessagesBtn" class="ghost">Historique</button>
+          </div>
+          <div id="chatStatus" class="status-line"></div>
+          <pre id="chatPayload">Aucune réponse.</pre>
+        </section>
+
+        <section class="card span-12">
+          <h2>Historique Messages</h2>
+          <p class="subtle">Messages persistés de la session courante, lus via l’API remote.</p>
+          <pre id="messagesPayload">[]</pre>
+        </section>
+
+        <section class="card span-12">
+          <h2>Équipes</h2>
+          <p class="subtle">Création d’équipe distante, inspection des membres et création de session d’équipe.</p>
+          <div class="row" style="margin-bottom: 14px;">
+            <label style="flex: 1 1 240px;">
+              Nom équipe
+              <input id="teamName" type="text" placeholder="Ops Squad" />
+            </label>
+            <label style="flex: 2 1 420px;">
+              Membres (JSON)
+              <textarea id="teamMembersJson" placeholder='[["ollama","llama3.2"],["openai","gpt-4.1-mini"]]'></textarea>
+            </label>
+          </div>
+          <div class="row" style="margin-bottom: 14px;">
+            <button id="createTeamBtn">Créer équipe</button>
+            <button id="refreshTeamsBtn" class="secondary">Rafraîchir</button>
+            <button id="createTeamSessionBtn" class="ghost">Créer session équipe</button>
+          </div>
+          <label style="margin-bottom: 14px;">
+            Équipe active
+            <select id="teamSelect"></select>
+          </label>
+          <div id="teamsStatus" class="status-line"></div>
+          <pre id="teamsPayload">[]</pre>
+          <pre id="teamDetailPayload">Aucun détail d’équipe.</pre>
+        </section>
+
+        <section class="card span-12">
+          <h2>Audit</h2>
+          <p class="subtle">Lecture admin filtrée des événements d’audit distants.</p>
+          <div class="row" style="margin-bottom: 14px;">
+            <label style="flex: 1 1 220px;">
+              Event type
+              <input id="auditEventType" type="text" placeholder="remote.auth.login_failed" />
+            </label>
+            <label style="flex: 1 1 220px;">
+              Actor username
+              <input id="auditActorUsername" type="text" placeholder="admin.local" />
+            </label>
+            <label style="flex: 0 1 140px;">
+              Limit
+              <input id="auditLimit" type="number" min="1" max="200" value="20" />
+            </label>
+          </div>
+          <div class="row" style="margin-bottom: 14px;">
+            <button id="refreshAuditBtn">Rafraîchir</button>
+          </div>
+          <pre id="auditPayload">[]</pre>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const state = {
+        serviceToken: localStorage.getItem("vida.remote.serviceToken") || "",
+        sessionToken: localStorage.getItem("vida.remote.sessionToken") || "",
+        authActor: null,
+        providers: [],
+        sessions: [],
+        teams: [],
+      };
+
+      const byId = (id) => document.getElementById(id);
+      const serviceTokenInput = byId("serviceToken");
+      const usernameInput = byId("username");
+      const passwordInput = byId("password");
+      const newUsernameInput = byId("newUsername");
+      const newPasswordInput = byId("newPassword");
+      const newRoleSelect = byId("newRole");
+      const providerSelect = byId("providerSelect");
+      const modelSelect = byId("modelSelect");
+      const sessionSelect = byId("sessionSelect");
+      const chatPrompt = byId("chatPrompt");
+      const teamSelect = byId("teamSelect");
+      const teamNameInput = byId("teamName");
+      const teamMembersJson = byId("teamMembersJson");
+      teamMembersJson.value = '[["ollama","llama3.2"]]';
+
+      serviceTokenInput.value = state.serviceToken;
+      byId("targetOrigin").textContent = window.location.origin;
+      byId("targetTls").textContent = window.location.protocol === "https:" ? "HTTPS" : "HTTP";
+
+      function setStatus(id, message, mode = "") {
+        const node = byId(id);
+        node.textContent = message || "";
+        node.className = `status-line${mode ? " " + mode : ""}`;
+      }
+
+      function setJson(id, payload) {
+        byId(id).textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function serviceHeaders() {
+        const headers = { "Content-Type": "application/json" };
+        if (state.serviceToken) {
+          headers.Authorization = `Bearer ${state.serviceToken}`;
+        }
+        if (state.sessionToken) {
+          headers["x-vida-session"] = state.sessionToken;
+        }
+        return headers;
+      }
+
+      async function api(path, options = {}) {
+        const response = await fetch(path, {
+          ...options,
+          headers: {
+            ...serviceHeaders(),
+            ...(options.headers || {}),
+          },
+        });
+        const contentType = response.headers.get("content-type") || "";
+        const payload = contentType.includes("application/json")
+          ? await response.json().catch(() => ({}))
+          : await response.text().catch(() => "");
+        if (!response.ok) {
+          const message =
+            typeof payload === "string"
+              ? payload
+              : payload?.error || `${response.status} ${response.statusText}`;
+          throw new Error(message);
+        }
+        return payload;
+      }
+
+      function saveTokens() {
+        localStorage.setItem("vida.remote.serviceToken", state.serviceToken);
+        if (state.sessionToken) {
+          localStorage.setItem("vida.remote.sessionToken", state.sessionToken);
+        } else {
+          localStorage.removeItem("vida.remote.sessionToken");
+        }
+      }
+
+      function renderUsers(users) {
+        const tbody = byId("usersTable");
+        tbody.innerHTML = users
+          .map(
+            (user) => `
+              <tr>
+                <td>${user.username}</td>
+                <td><span class="pill">${user.role}</span></td>
+                <td>${user.active ? "yes" : "no"}</td>
+                <td>${user.created_at}</td>
+              </tr>`
+          )
+          .join("");
+      }
+
+      function renderProviders(providers) {
+        providerSelect.innerHTML = providers
+          .map(
+            (provider) =>
+              `<option value="${provider.id}">${provider.display_name} (${provider.provider_type})</option>`
+          )
+          .join("");
+        updateModelOptions();
+      }
+
+      function renderSessions(sessions) {
+        sessionSelect.innerHTML = sessions
+          .map(
+            (session) =>
+              `<option value="${session.id}">${session.title || session.id} :: ${session.provider_id} / ${session.model}</option>`
+          )
+          .join("");
+      }
+
+      function renderTeams(teams) {
+        teamSelect.innerHTML = teams
+          .map((team) => `<option value="${team.id}">${team.name} :: ${team.mode}</option>`)
+          .join("");
+      }
+
+      function updateModelOptions() {
+        const provider = state.providers.find((item) => item.id === providerSelect.value) || state.providers[0];
+        const models = provider?.models || [];
+        modelSelect.innerHTML = models
+          .map((model) => `<option value="${model}">${model}</option>`)
+          .join("");
+      }
+
+      async function refreshAuthStatus() {
+        const payload = await api("/api/auth/status");
+        state.authActor = payload.actor || null;
+        setJson("authPayload", payload);
+        byId("hasUsersMetric").textContent = payload.has_users ? "yes" : "no";
+        byId("roleMetric").textContent = payload.actor?.role || "-";
+        return payload;
+      }
+
+      async function refreshHealth() {
+        const publicHealth = await fetch("/api/health").then((res) => res.json());
+        let adminHealth = null;
+        try {
+          adminHealth = await api("/api/admin/health");
+        } catch (error) {
+          adminHealth = { warning: String(error) };
+        }
+        setJson("healthPayload", { public: publicHealth, admin: adminHealth });
+      }
+
+      async function refreshUsers() {
+        const users = await api("/api/admin/users");
+        renderUsers(users);
+        setStatus("usersStatus", `Users loaded: ${users.length}`, "ok");
+      }
+
+      async function refreshProviders() {
+        const providers = await api("/api/providers");
+        state.providers = providers;
+        setJson("providersPayload", providers);
+        renderProviders(providers);
+      }
+
+      async function refreshSessions() {
+        const sessions = await api("/api/sessions");
+        state.sessions = sessions;
+        renderSessions(sessions);
+      }
+
+      async function refreshMessages() {
+        if (!sessionSelect.value) {
+          setJson("messagesPayload", []);
+          return;
+        }
+        const payload = await api(`/api/sessions/messages?session_id=${encodeURIComponent(sessionSelect.value)}`);
+        setJson("messagesPayload", payload);
+      }
+
+      async function deleteSession() {
+        if (!sessionSelect.value) {
+          throw new Error("Aucune session sélectionnée");
+        }
+        await api("/api/sessions/delete", {
+          method: "POST",
+          body: JSON.stringify({ session_id: sessionSelect.value }),
+        });
+        setStatus("chatStatus", `Session supprimée: ${sessionSelect.value}`, "ok");
+        await refreshSessions();
+        setJson("messagesPayload", []);
+      }
+
+      async function refreshAudit() {
+        const params = new URLSearchParams();
+        const eventType = byId("auditEventType").value.trim();
+        const actorUsername = byId("auditActorUsername").value.trim();
+        const limit = byId("auditLimit").value.trim();
+        if (eventType) params.set("event_type", eventType);
+        if (actorUsername) params.set("actor_username", actorUsername);
+        if (limit) params.set("limit", limit);
+        const payload = await api(`/api/admin/audit?${params.toString()}`);
+        setJson("auditPayload", payload);
+      }
+
+      async function refreshTeams() {
+        const teams = await api("/api/teams");
+        state.teams = teams;
+        renderTeams(teams);
+        setJson("teamsPayload", teams);
+        if (teams.length) {
+          await refreshTeamDetail();
+        } else {
+          setJson("teamDetailPayload", "Aucune équipe.");
+        }
+      }
+
+      async function refreshTeamDetail() {
+        if (!teamSelect.value) {
+          setJson("teamDetailPayload", "Aucune équipe.");
+          return;
+        }
+        const payload = await api(`/api/teams/detail?team_id=${encodeURIComponent(teamSelect.value)}`);
+        setJson("teamDetailPayload", payload);
+      }
+
+      async function bootstrap() {
+        const payload = await api("/api/auth/bootstrap", {
+          method: "POST",
+          body: JSON.stringify({
+            username: usernameInput.value.trim(),
+            password: passwordInput.value,
+          }),
+        });
+        state.sessionToken = payload.session_token;
+        saveTokens();
+        setStatus("authStatus", `Bootstrap ok: ${payload.actor.username}`, "ok");
+        await fullRefresh();
+      }
+
+      async function login() {
+        const payload = await api("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            username: usernameInput.value.trim(),
+            password: passwordInput.value,
+          }),
+        });
+        state.sessionToken = payload.session_token;
+        saveTokens();
+        setStatus("authStatus", `Login ok: ${payload.actor.username}`, "ok");
+        await fullRefresh();
+      }
+
+      async function logout() {
+        await api("/api/auth/logout", { method: "POST" });
+        state.sessionToken = "";
+        state.authActor = null;
+        saveTokens();
+        setStatus("authStatus", "Session distante fermée.", "ok");
+        await fullRefresh();
+      }
+
+      async function createUser() {
+        const payload = await api("/api/admin/users", {
+          method: "POST",
+          body: JSON.stringify({
+            username: newUsernameInput.value.trim(),
+            password: newPasswordInput.value,
+            role: newRoleSelect.value,
+          }),
+        });
+        setStatus("usersStatus", `User created: ${payload.username}`, "ok");
+        await refreshUsers();
+        await refreshAudit();
+      }
+
+      async function createSession() {
+        const payload = await api("/api/sessions/create", {
+          method: "POST",
+          body: JSON.stringify({
+            provider_id: providerSelect.value,
+            model: modelSelect.value,
+          }),
+        });
+        setStatus("chatStatus", `Session created: ${payload.id}`, "ok");
+        await refreshSessions();
+        sessionSelect.value = payload.id;
+        await refreshMessages();
+      }
+
+      async function sendPrompt() {
+        const payload = await api("/api/chat/send", {
+          method: "POST",
+          body: JSON.stringify({
+            session_id: sessionSelect.value,
+            content: chatPrompt.value,
+          }),
+        });
+        setStatus("chatStatus", `Completion received from ${payload.model}`, "ok");
+        setJson("chatPayload", payload);
+        await refreshMessages();
+      }
+
+      async function streamPrompt() {
+        if (!sessionSelect.value) {
+          throw new Error("Aucune session sélectionnée");
+        }
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${protocol}//${window.location.host}/api/chat/stream?service_token=${encodeURIComponent(state.serviceToken)}&session_token=${encodeURIComponent(state.sessionToken)}`;
+        const socket = new WebSocket(wsUrl);
+        let buffer = "";
+
+        setStatus("chatStatus", "Streaming en cours…", "ok");
+        setJson("chatPayload", { type: "stream", chunks: [] });
+
+        socket.onopen = () => {
+          socket.send(JSON.stringify({
+            session_id: sessionSelect.value,
+            content: chatPrompt.value,
+          }));
+        };
+
+        socket.onmessage = (event) => {
+          const payload = JSON.parse(event.data);
+          if (payload.type === "token") {
+            buffer += payload.content;
+            setJson("chatPayload", { type: "stream", content: buffer });
+          } else if (payload.type === "error") {
+            setStatus("chatStatus", payload.error || "Erreur stream", "error");
+          } else if (payload.type === "done") {
+            setStatus("chatStatus", "Streaming terminé.", "ok");
+          }
+        };
+
+        socket.onerror = () => {
+          setStatus("chatStatus", "Erreur WebSocket", "error");
+        };
+
+        socket.onclose = async () => {
+          await refreshMessages();
+        };
+      }
+
+      async function createTeam() {
+        const members = JSON.parse(teamMembersJson.value);
+        const payload = await api("/api/teams/create", {
+          method: "POST",
+          body: JSON.stringify({
+            name: teamNameInput.value.trim(),
+            members,
+          }),
+        });
+        setStatus("teamsStatus", `Équipe créée: ${payload.name}`, "ok");
+        await refreshTeams();
+        teamSelect.value = payload.id;
+        await refreshTeamDetail();
+      }
+
+      async function createTeamSession() {
+        if (!teamSelect.value) {
+          throw new Error("Aucune équipe sélectionnée");
+        }
+        const payload = await api("/api/teams/session", {
+          method: "POST",
+          body: JSON.stringify({ team_id: teamSelect.value }),
+        });
+        setStatus("teamsStatus", `Session équipe créée: ${payload.id}`, "ok");
+        await refreshSessions();
+        sessionSelect.value = payload.id;
+        await refreshMessages();
+      }
+
+      async function fullRefresh() {
+        try {
+          await refreshAuthStatus();
+        } catch (error) {
+          setStatus("authStatus", String(error), "error");
+          setJson("authPayload", { error: String(error) });
+        }
+
+        try { await refreshHealth(); } catch (error) { setJson("healthPayload", { error: String(error) }); }
+
+        if (!state.sessionToken) {
+          setJson("providersPayload", []);
+          renderUsers([]);
+          renderProviders([]);
+          renderSessions([]);
+          setJson("auditPayload", []);
+          return;
+        }
+
+        try { await refreshUsers(); } catch (error) { setStatus("usersStatus", String(error), "error"); }
+        try { await refreshProviders(); } catch (error) { setJson("providersPayload", { error: String(error) }); }
+        try { await refreshSessions(); } catch (error) { setStatus("chatStatus", String(error), "error"); }
+        try { await refreshMessages(); } catch (error) { setJson("messagesPayload", { error: String(error) }); }
+        try { await refreshTeams(); } catch (error) { setStatus("teamsStatus", String(error), "error"); }
+        try { await refreshAudit(); } catch (error) { setJson("auditPayload", { error: String(error) }); }
+      }
+
+      byId("saveTokenBtn").addEventListener("click", async () => {
+        state.serviceToken = serviceTokenInput.value.trim();
+        saveTokens();
+        setStatus("serviceStatus", "Service token enregistré localement.", "ok");
+        await fullRefresh();
+      });
+
+      byId("clearTokenBtn").addEventListener("click", () => {
+        state.serviceToken = "";
+        state.sessionToken = "";
+        state.authActor = null;
+        serviceTokenInput.value = "";
+        saveTokens();
+        setStatus("serviceStatus", "Token effacé.", "ok");
+        setStatus("authStatus", "");
+        fullRefresh();
+      });
+
+      byId("checkHealthBtn").addEventListener("click", async () => {
+        try {
+          const payload = await fetch("/api/health").then((res) => res.json());
+          setStatus("serviceStatus", `Health ok: uptime=${payload.uptime_seconds}s`, "ok");
+          await refreshHealth();
+        } catch (error) {
+          setStatus("serviceStatus", String(error), "error");
+        }
+      });
+
+      byId("bootstrapBtn").addEventListener("click", () => bootstrap().catch((error) => setStatus("authStatus", String(error), "error")));
+      byId("loginBtn").addEventListener("click", () => login().catch((error) => setStatus("authStatus", String(error), "error")));
+      byId("logoutBtn").addEventListener("click", () => logout().catch((error) => setStatus("authStatus", String(error), "error")));
+      byId("refreshHealthBtn").addEventListener("click", () => refreshHealth().catch((error) => setJson("healthPayload", { error: String(error) })));
+      byId("createUserBtn").addEventListener("click", () => createUser().catch((error) => setStatus("usersStatus", String(error), "error")));
+      byId("refreshUsersBtn").addEventListener("click", () => refreshUsers().catch((error) => setStatus("usersStatus", String(error), "error")));
+      byId("refreshProvidersBtn").addEventListener("click", () => refreshProviders().catch((error) => setJson("providersPayload", { error: String(error) })));
+      byId("refreshSessionsBtn").addEventListener("click", () => refreshSessions().catch((error) => setStatus("chatStatus", String(error), "error")));
+      byId("createSessionBtn").addEventListener("click", () => createSession().catch((error) => setStatus("chatStatus", String(error), "error")));
+      byId("sendPromptBtn").addEventListener("click", () => sendPrompt().catch((error) => setStatus("chatStatus", String(error), "error")));
+      byId("streamPromptBtn").addEventListener("click", () => streamPrompt().catch((error) => setStatus("chatStatus", String(error), "error")));
+      byId("loadMessagesBtn").addEventListener("click", () => refreshMessages().catch((error) => setJson("messagesPayload", { error: String(error) })));
+      byId("deleteSessionBtn").addEventListener("click", () => deleteSession().catch((error) => setStatus("chatStatus", String(error), "error")));
+      byId("createTeamBtn").addEventListener("click", () => createTeam().catch((error) => setStatus("teamsStatus", String(error), "error")));
+      byId("refreshTeamsBtn").addEventListener("click", () => refreshTeams().catch((error) => setStatus("teamsStatus", String(error), "error")));
+      byId("createTeamSessionBtn").addEventListener("click", () => createTeamSession().catch((error) => setStatus("teamsStatus", String(error), "error")));
+      byId("refreshAuditBtn").addEventListener("click", () => refreshAudit().catch((error) => setJson("auditPayload", { error: String(error) })));
+      providerSelect.addEventListener("change", updateModelOptions);
+      sessionSelect.addEventListener("change", () => refreshMessages().catch((error) => setJson("messagesPayload", { error: String(error) })));
+      teamSelect.addEventListener("change", () => refreshTeamDetail().catch((error) => setStatus("teamsStatus", String(error), "error")));
+
+      fullRefresh().catch((error) => {
+        setStatus("serviceStatus", String(error), "error");
+      });
+    </script>
+  </body>
+</html>

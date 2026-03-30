@@ -7,6 +7,7 @@ import { AgentList } from "@/src/components/sidebar/AgentList";
 import { TeamList } from "@/src/components/teams/TeamList";
 import { TeamCreator } from "@/src/components/teams/TeamCreator";
 import { WorkspaceSelector } from "@/src/components/workspace/WorkspaceSelector";
+import { useProviders } from "@/src/hooks/useProviders";
 import { useStore } from "@/src/stores/store";
 import { api } from "@/src/lib/tauri";
 
@@ -16,10 +17,18 @@ export function Sidebar() {
   const setCurrentSession = useStore((s) => s.setCurrentSession);
   const setMessages = useStore((s) => s.setMessages);
   const [teamCreatorOpen, setTeamCreatorOpen] = useState(false);
+  const { providers } = useProviders();
 
   const handleNewChat = async () => {
     try {
-      const session = await api.createSession("ollama", "qwen3:14b");
+      const fallbackProvider = providers.find((provider) => provider.models.length > 0);
+      if (!fallbackProvider) {
+        throw new Error("No provider with an available model is configured");
+      }
+      const session = await api.createSession(
+        fallbackProvider.id,
+        fallbackProvider.models[0],
+      );
       addSession(session);
       setCurrentSession(session.id);
       setMessages(session.id, []);

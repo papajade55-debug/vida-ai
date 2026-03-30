@@ -37,13 +37,50 @@ struct OpenAIChatRequest {
     max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OpenAIToolDefinition>>,
     stream: bool,
 }
 
 #[derive(Serialize)]
 struct OpenAIMessage {
     role: String,
-    content: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAIMessageToolCall>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OpenAIMessageToolCall {
+    id: String,
+    #[serde(rename = "type")]
+    call_type: String,
+    function: OpenAIToolFunction,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct OpenAIToolFunction {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Serialize)]
+struct OpenAIToolDefinition {
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OpenAIToolSpec,
+}
+
+#[derive(Serialize)]
+struct OpenAIToolSpec {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -61,7 +98,9 @@ struct OpenAIChoice {
 
 #[derive(Deserialize)]
 struct OpenAIResponseMessage {
-    content: Option<String>,
+    content: Option<serde_json::Value>,
+    #[serde(default)]
+    tool_calls: Vec<OpenAIMessageToolCall>,
 }
 
 #[derive(Deserialize)]
@@ -85,6 +124,25 @@ struct OpenAIStreamChoice {
 #[derive(Deserialize)]
 struct OpenAIStreamDelta {
     content: Option<String>,
+    #[serde(default)]
+    tool_calls: Vec<OpenAIStreamToolCallDelta>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIStreamToolCallDelta {
+    index: usize,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    function: Option<OpenAIStreamFunctionDelta>,
+}
+
+#[derive(Deserialize)]
+struct OpenAIStreamFunctionDelta {
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    arguments: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -112,13 +170,98 @@ struct OpenAIErrorBody {
 fn to_openai_messages(messages: &[ChatMessage]) -> Vec<OpenAIMessage> {
     messages
         .iter()
-        .map(|m| OpenAIMessage {
-            role: match m.role {
-                ChatRole::System => "system".to_string(),
-                ChatRole::User => "user".to_string(),
-                ChatRole::Assistant => "assistant".to_string(),
+        .map(|m| match m.role {
+            ChatRole::Assistant if m.tool_call_id.is_some() && m.name.is_some() => {
+                let arguments = extract_tool_call_arguments(&m.content)
+                    .unwrap_or_else(|| serde_json::json!({}));
+                OpenAIMessage {
+                    role: "assistant".to_string(),
+                    content: None,
+                    tool_call_id: None,
+                    name: None,
+                    tool_calls: Some(vec![OpenAIMessageToolCall {
+                        id: m.tool_call_id.clone().unwrap_or_default(),
+                        call_type: "function".to_string(),
+                        function: OpenAIToolFunction {
+                            name: m.name.clone().unwrap_or_default(),
+                            arguments: arguments.to_string(),
+                        },
+                    }]),
+                }
+            }
+            _ => OpenAIMessage {
+                role: match m.role {
+                    ChatRole::System => "system".to_string(),
+                    ChatRole::User => "user".to_string(),
+                    ChatRole::Assistant => "assistant".to_string(),
+                    ChatRole::Tool => "tool".to_string(),
+                },
+                content: Some(serde_json::Value::String(m.content.clone())),
+                tool_call_id: matches!(m.role, ChatRole::Tool)
+                    .then(|| m.tool_call_id.clone())
+                    .flatten(),
+                name: None,
+                tool_calls: None,
             },
-            content: serde_json::Value::String(m.content.clone()),
+        })
+        .collect()
+}
+
+fn to_openai_tools(options: &Option<CompletionOptions>) -> Option<Vec<OpenAIToolDefinition>> {
+    options.as_ref().and_then(|opts| {
+        opts.tools.as_ref().map(|tools| {
+            tools
+                .iter()
+                .map(|tool| OpenAIToolDefinition {
+                    tool_type: "function".to_string(),
+                    function: OpenAIToolSpec {
+                        name: tool.name.clone(),
+                        description: tool.description.clone(),
+                        parameters: tool.parameters.clone(),
+                    },
+                })
+                .collect()
+        })
+    })
+}
+
+fn extract_tool_call_arguments(content: &str) -> Option<serde_json::Value> {
+    let start = content.find("<tool_call>")?;
+    let after = &content[start + "<tool_call>".len()..];
+    let end = after.find("</tool_call>")?;
+    let payload: serde_json::Value = serde_json::from_str(after[..end].trim()).ok()?;
+    payload.get("arguments").cloned()
+}
+
+fn openai_content_to_text(content: Option<&serde_json::Value>) -> String {
+    match content {
+        Some(serde_json::Value::String(text)) => text.clone(),
+        Some(serde_json::Value::Array(parts)) => parts
+            .iter()
+            .filter_map(|part| {
+                part.get("text")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_string)
+            })
+            .collect::<Vec<_>>()
+            .join(""),
+        _ => String::new(),
+    }
+}
+
+fn parse_openai_tool_calls(
+    calls: &[OpenAIMessageToolCall],
+) -> Result<Vec<ToolCall>, ProviderError> {
+    calls
+        .iter()
+        .filter(|call| call.call_type == "function")
+        .map(|call| {
+            let arguments = serde_json::from_str(&call.function.arguments)?;
+            Ok(ToolCall {
+                id: call.id.clone(),
+                name: call.function.name.clone(),
+                arguments,
+            })
         })
         .collect()
 }
@@ -141,6 +284,7 @@ impl LLMProvider for OpenAIProvider {
             temperature: options.as_ref().and_then(|o| o.temperature),
             max_tokens: options.as_ref().and_then(|o| o.max_tokens),
             top_p: options.as_ref().and_then(|o| o.top_p),
+            tools: to_openai_tools(&options),
             stream: false,
         };
 
@@ -165,15 +309,23 @@ impl LLMProvider for OpenAIProvider {
         }
 
         let oai_resp: OpenAIChatResponse = resp.json().await?;
-        let choice = oai_resp.choices.first().ok_or(ProviderError::Internal("No choices in response".to_string()))?;
-        let usage = oai_resp.usage.unwrap_or(OpenAIUsage { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 });
+        let choice = oai_resp.choices.first().ok_or(ProviderError::Internal(
+            "No choices in response".to_string(),
+        ))?;
+        let usage = oai_resp.usage.unwrap_or(OpenAIUsage {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+        });
+        let tool_calls = parse_openai_tool_calls(&choice.message.tool_calls)?;
 
         Ok(CompletionResponse {
-            content: choice.message.content.clone().unwrap_or_default(),
+            content: openai_content_to_text(choice.message.content.as_ref()),
             model: oai_resp.model,
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
             total_tokens: usage.total_tokens,
+            tool_calls,
         })
     }
 
@@ -194,6 +346,7 @@ impl LLMProvider for OpenAIProvider {
             temperature: options.as_ref().and_then(|o| o.temperature),
             max_tokens: options.as_ref().and_then(|o| o.max_tokens),
             top_p: options.as_ref().and_then(|o| o.top_p),
+            tools: to_openai_tools(&options),
             stream: true,
         };
 
@@ -207,7 +360,11 @@ impl LLMProvider for OpenAIProvider {
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            let _ = tx.send(StreamEvent::Error { error: body.clone() }).await;
+            let _ = tx
+                .send(StreamEvent::Error {
+                    error: body.clone(),
+                })
+                .await;
             let _ = tx.send(StreamEvent::Done).await;
             return Err(ProviderError::Api(body));
         }
@@ -215,6 +372,7 @@ impl LLMProvider for OpenAIProvider {
         use futures_util::StreamExt;
         let mut stream = resp.bytes_stream();
         let mut buffer = String::new();
+        let mut tool_call_buffers: Vec<(String, String, String)> = Vec::new(); // (id, name, arguments_json)
 
         while let Some(chunk) = stream.next().await {
             match chunk {
@@ -228,6 +386,14 @@ impl LLMProvider for OpenAIProvider {
                         }
                         let data = &line[6..];
                         if data == "[DONE]" {
+                            // Émettre les tool calls accumulés avant de terminer
+                            if !tool_call_buffers.is_empty() {
+                                for (id, name, args_json) in &tool_call_buffers {
+                                    let args: serde_json::Value = serde_json::from_str(args_json).unwrap_or(serde_json::json!({}));
+                                    let tag = format!("<tool_call>{{\"id\":\"{}\",\"name\":\"{}\",\"arguments\":{}}}</tool_call>", id, name, args);
+                                    let _ = tx.send(StreamEvent::Token { content: tag }).await;
+                                }
+                            }
                             let _ = tx.send(StreamEvent::Done).await;
                             return Ok(());
                         }
@@ -236,28 +402,71 @@ impl LLMProvider for OpenAIProvider {
                                 if let Some(choice) = chunk.choices.first() {
                                     if let Some(content) = &choice.delta.content {
                                         if !content.is_empty() {
-                                            let _ = tx.send(StreamEvent::Token {
-                                                content: content.clone(),
-                                            }).await;
+                                            let _ = tx
+                                                .send(StreamEvent::Token {
+                                                    content: content.clone(),
+                                                })
+                                                .await;
+                                        }
+                                    }
+                                    for tc_delta in &choice.delta.tool_calls {
+                                        let idx = tc_delta.index;
+                                        while tool_call_buffers.len() <= idx {
+                                            tool_call_buffers.push((String::new(), String::new(), String::new()));
+                                        }
+                                        if let Some(id) = &tc_delta.id {
+                                            tool_call_buffers[idx].0 = id.clone();
+                                        }
+                                        if let Some(func) = &tc_delta.function {
+                                            if let Some(name) = &func.name {
+                                                tool_call_buffers[idx].1 = name.clone();
+                                            }
+                                            if let Some(args) = &func.arguments {
+                                                tool_call_buffers[idx].2.push_str(args);
+                                            }
                                         }
                                     }
                                     if choice.finish_reason.is_some() {
+                                        // Émettre les tool calls accumulés avant de terminer
+                                        if !tool_call_buffers.is_empty() {
+                                            for (id, name, args_json) in &tool_call_buffers {
+                                                let args: serde_json::Value = serde_json::from_str(args_json).unwrap_or(serde_json::json!({}));
+                                                let tag = format!("<tool_call>{{\"id\":\"{}\",\"name\":\"{}\",\"arguments\":{}}}</tool_call>", id, name, args);
+                                                let _ = tx.send(StreamEvent::Token { content: tag }).await;
+                                            }
+                                        }
                                         let _ = tx.send(StreamEvent::Done).await;
                                         return Ok(());
                                     }
                                 }
                             }
                             Err(e) => {
-                                let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                                let _ = tx
+                                    .send(StreamEvent::Error {
+                                        error: e.to_string(),
+                                    })
+                                    .await;
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                    let _ = tx
+                        .send(StreamEvent::Error {
+                            error: e.to_string(),
+                        })
+                        .await;
                     let _ = tx.send(StreamEvent::Done).await;
                     return Err(ProviderError::Network(e));
                 }
+            }
+        }
+        // Émettre les tool calls accumulés avant de terminer
+        if !tool_call_buffers.is_empty() {
+            for (id, name, args_json) in &tool_call_buffers {
+                let args: serde_json::Value = serde_json::from_str(args_json).unwrap_or(serde_json::json!({}));
+                let tag = format!("<tool_call>{{\"id\":\"{}\",\"name\":\"{}\",\"arguments\":{}}}</tool_call>", id, name, args);
+                let _ = tx.send(StreamEvent::Token { content: tag }).await;
             }
         }
         let _ = tx.send(StreamEvent::Done).await;
@@ -303,15 +512,23 @@ impl LLMProvider for OpenAIProvider {
         }
 
         let oai_resp: OpenAIChatResponse = resp.json().await?;
-        let choice = oai_resp.choices.first().ok_or(ProviderError::Internal("No choices".to_string()))?;
-        let usage = oai_resp.usage.unwrap_or(OpenAIUsage { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 });
+        let choice = oai_resp
+            .choices
+            .first()
+            .ok_or(ProviderError::Internal("No choices".to_string()))?;
+        let usage = oai_resp.usage.unwrap_or(OpenAIUsage {
+            prompt_tokens: 0,
+            completion_tokens: 0,
+            total_tokens: 0,
+        });
 
         Ok(CompletionResponse {
-            content: choice.message.content.clone().unwrap_or_default(),
+            content: openai_content_to_text(choice.message.content.as_ref()),
             model: oai_resp.model,
             prompt_tokens: usage.prompt_tokens,
             completion_tokens: usage.completion_tokens,
             total_tokens: usage.total_tokens,
+            tool_calls: parse_openai_tool_calls(&choice.message.tool_calls)?,
         })
     }
 
@@ -335,7 +552,8 @@ impl LLMProvider for OpenAIProvider {
 
     fn info(&self) -> ProviderInfo {
         ProviderInfo {
-            name: "OpenAI".to_string(),
+            id: "openai".to_string(),
+            display_name: "OpenAI".to_string(),
             provider_type: ProviderType::Cloud,
             models: vec![],
         }
@@ -364,19 +582,60 @@ mod tests {
 
     #[test]
     fn test_to_openai_messages() {
-        let messages = vec![
-            ChatMessage { role: ChatRole::User, content: "Hi".to_string() },
-        ];
+        let messages = vec![ChatMessage {
+            role: ChatRole::User,
+            content: "Hi".to_string(),
+            tool_call_id: None,
+            name: None,
+        }];
         let oai_msgs = to_openai_messages(&messages);
         assert_eq!(oai_msgs.len(), 1);
         assert_eq!(oai_msgs[0].role, "user");
+        assert_eq!(
+            oai_msgs[0].content,
+            Some(serde_json::Value::String("Hi".to_string()))
+        );
+    }
+
+    #[test]
+    fn test_to_openai_messages_with_tool_call() {
+        let messages = vec![ChatMessage {
+            role: ChatRole::Assistant,
+            content: r#"<tool_call>{"id":"call_1","name":"read_file","arguments":{"path":"/tmp/demo.txt"}}</tool_call>"#.to_string(),
+            tool_call_id: Some("call_1".to_string()),
+            name: Some("read_file".to_string()),
+        }];
+
+        let oai_msgs = to_openai_messages(&messages);
+        assert_eq!(oai_msgs.len(), 1);
+        assert_eq!(oai_msgs[0].role, "assistant");
+        assert!(oai_msgs[0].content.is_none());
+        assert_eq!(oai_msgs[0].tool_calls.as_ref().map(Vec::len), Some(1));
+    }
+
+    #[test]
+    fn test_parse_openai_tool_calls() {
+        let parsed = parse_openai_tool_calls(&[OpenAIMessageToolCall {
+            id: "call_1".to_string(),
+            call_type: "function".to_string(),
+            function: OpenAIToolFunction {
+                name: "read_file".to_string(),
+                arguments: r#"{"path":"/tmp/demo.txt"}"#.to_string(),
+            },
+        }])
+        .unwrap();
+
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].name, "read_file");
+        assert_eq!(parsed[0].arguments["path"], "/tmp/demo.txt");
     }
 
     #[test]
     fn test_openai_provider_info() {
         let provider = OpenAIProvider::new("https://api.openai.com", "sk-test", "gpt-4o");
         let info = provider.info();
-        assert_eq!(info.name, "OpenAI");
+        assert_eq!(info.id, "openai");
+        assert_eq!(info.display_name, "OpenAI");
         assert_eq!(info.provider_type, ProviderType::Cloud);
     }
 

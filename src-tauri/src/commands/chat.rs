@@ -11,7 +11,7 @@ pub async fn send_message(
     session_id: String,
     content: String,
 ) -> Result<CompletionResponse, String> {
-    let e = engine.read().await;
+    let mut e = engine.write().await;
     e.send_message(&session_id, &content)
         .await
         .map_err(|e: VidaError| e.to_string())
@@ -33,7 +33,7 @@ pub async fn stream_completion(
 
     // Spawn the streaming in background
     tokio::spawn(async move {
-        let e = engine_ref.read().await;
+        let mut e = engine_ref.write().await;
         let _ = e.send_message_stream(&sid, &content_clone, tx).await;
     });
 
@@ -111,12 +111,11 @@ pub async fn send_vision_message(
 
     let e = engine.read().await;
 
-    let session = e
-        .db
-        .get_session(&session_id)
-        .await
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| format!("Session not found: {}", session_id))?;
+    let session =
+        e.db.get_session(&session_id)
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Session not found: {}", session_id))?;
 
     let provider = e
         .providers

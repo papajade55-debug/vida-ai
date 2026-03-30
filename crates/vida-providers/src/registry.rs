@@ -27,7 +27,14 @@ impl ProviderRegistry {
     }
 
     pub fn list(&self) -> Vec<ProviderInfo> {
-        self.providers.values().map(|p| p.info()).collect()
+        self.providers
+            .iter()
+            .map(|(name, provider)| {
+                let mut info = provider.info();
+                info.id = name.clone();
+                info
+            })
+            .collect()
     }
 
     pub async fn health_check_all(&self) -> Vec<(String, Result<(), ProviderError>)> {
@@ -60,27 +67,47 @@ mod tests {
 
     #[async_trait]
     impl LLMProvider for FakeProvider {
-        async fn chat_completion(&self, _: &[ChatMessage], _: Option<CompletionOptions>) -> Result<CompletionResponse, ProviderError> {
+        async fn chat_completion(
+            &self,
+            _: &[ChatMessage],
+            _: Option<CompletionOptions>,
+        ) -> Result<CompletionResponse, ProviderError> {
             Ok(CompletionResponse {
                 content: "fake".to_string(),
                 model: "fake-model".to_string(),
                 prompt_tokens: 0,
                 completion_tokens: 0,
                 total_tokens: 0,
+                tool_calls: vec![],
             })
         }
-        async fn chat_completion_stream(&self, _: &[ChatMessage], _: Option<CompletionOptions>, _: mpsc::Sender<StreamEvent>) -> Result<(), ProviderError> {
+        async fn chat_completion_stream(
+            &self,
+            _: &[ChatMessage],
+            _: Option<CompletionOptions>,
+            _: mpsc::Sender<StreamEvent>,
+        ) -> Result<(), ProviderError> {
             Ok(())
         }
-        async fn vision_completion(&self, _: Vec<u8>, _: &str, _: Option<CompletionOptions>) -> Result<CompletionResponse, ProviderError> {
+        async fn vision_completion(
+            &self,
+            _: Vec<u8>,
+            _: &str,
+            _: Option<CompletionOptions>,
+        ) -> Result<CompletionResponse, ProviderError> {
             Err(ProviderError::Internal("not supported".to_string()))
         }
         async fn health_check(&self) -> Result<(), ProviderError> {
-            if self.healthy { Ok(()) } else { Err(ProviderError::Unavailable) }
+            if self.healthy {
+                Ok(())
+            } else {
+                Err(ProviderError::Unavailable)
+            }
         }
         fn info(&self) -> ProviderInfo {
             ProviderInfo {
-                name: self.name.clone(),
+                id: self.name.to_lowercase(),
+                display_name: self.name.clone(),
                 provider_type: ProviderType::Local,
                 models: vec!["fake-model".to_string()],
             }
@@ -93,7 +120,10 @@ mod tests {
     #[test]
     fn test_registry_add_and_get() {
         let mut reg = ProviderRegistry::new();
-        let provider = Arc::new(FakeProvider { name: "test".to_string(), healthy: true });
+        let provider = Arc::new(FakeProvider {
+            name: "test".to_string(),
+            healthy: true,
+        });
         assert!(reg.add("test".to_string(), provider).is_ok());
         assert!(reg.get("test").is_some());
         assert!(reg.get("nonexistent").is_none());
@@ -102,8 +132,14 @@ mod tests {
     #[test]
     fn test_registry_duplicate_add_fails() {
         let mut reg = ProviderRegistry::new();
-        let p1 = Arc::new(FakeProvider { name: "test".to_string(), healthy: true });
-        let p2 = Arc::new(FakeProvider { name: "test".to_string(), healthy: true });
+        let p1 = Arc::new(FakeProvider {
+            name: "test".to_string(),
+            healthy: true,
+        });
+        let p2 = Arc::new(FakeProvider {
+            name: "test".to_string(),
+            healthy: true,
+        });
         assert!(reg.add("test".to_string(), p1).is_ok());
         assert!(reg.add("test".to_string(), p2).is_err());
     }
@@ -111,8 +147,22 @@ mod tests {
     #[test]
     fn test_registry_list() {
         let mut reg = ProviderRegistry::new();
-        reg.add("a".to_string(), Arc::new(FakeProvider { name: "A".to_string(), healthy: true })).unwrap();
-        reg.add("b".to_string(), Arc::new(FakeProvider { name: "B".to_string(), healthy: true })).unwrap();
+        reg.add(
+            "a".to_string(),
+            Arc::new(FakeProvider {
+                name: "A".to_string(),
+                healthy: true,
+            }),
+        )
+        .unwrap();
+        reg.add(
+            "b".to_string(),
+            Arc::new(FakeProvider {
+                name: "B".to_string(),
+                healthy: true,
+            }),
+        )
+        .unwrap();
         let list = reg.list();
         assert_eq!(list.len(), 2);
     }
@@ -120,8 +170,22 @@ mod tests {
     #[tokio::test]
     async fn test_registry_health_check_all() {
         let mut reg = ProviderRegistry::new();
-        reg.add("healthy".to_string(), Arc::new(FakeProvider { name: "H".to_string(), healthy: true })).unwrap();
-        reg.add("sick".to_string(), Arc::new(FakeProvider { name: "S".to_string(), healthy: false })).unwrap();
+        reg.add(
+            "healthy".to_string(),
+            Arc::new(FakeProvider {
+                name: "H".to_string(),
+                healthy: true,
+            }),
+        )
+        .unwrap();
+        reg.add(
+            "sick".to_string(),
+            Arc::new(FakeProvider {
+                name: "S".to_string(),
+                healthy: false,
+            }),
+        )
+        .unwrap();
         let results = reg.health_check_all().await;
         assert_eq!(results.len(), 2);
         let healthy_result = results.iter().find(|(n, _)| n == "healthy").unwrap();

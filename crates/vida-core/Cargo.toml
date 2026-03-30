@@ -33,3 +33,4 @@ async-trait = { workspace = true }
 mockall = "0.12"
 tempfile = "3.8"
 tokio = { workspace = true, features = ["test-util"] }
+tower = "0.5"

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { RefreshCw, Plus, Trash2 } from "lucide-react";
 import { GlassButton } from "@/src/design-system/GlassButton";
 import { GlassInput } from "@/src/design-system/GlassInput";
@@ -84,12 +84,12 @@ export function ProviderSettings() {
       ) : (
         <div className="space-y-2">
           {providers.map((provider) => {
-            const isHealthy = health[provider.name] ?? false;
-            const isEditing = editingProvider === provider.name;
+            const isHealthy = health[provider.id] ?? false;
+            const isEditing = editingProvider === provider.id;
 
             return (
               <div
-                key={provider.name}
+                key={provider.id}
                 className="px-3 py-2 rounded-[var(--radius)]"
                 style={{
                   background: "var(--glass-bg)",
@@ -103,7 +103,7 @@ export function ProviderSettings() {
                       className="text-sm font-medium"
                       style={{ color: "var(--text-primary)" }}
                     >
-                      {provider.name}
+                      {provider.display_name}
                     </span>
                     <span
                       className="text-[10px] px-1.5 py-0.5 rounded"
@@ -121,7 +121,7 @@ export function ProviderSettings() {
                       icon={<Plus size={14} />}
                       onClick={() => {
                         setEditingProvider(
-                          isEditing ? null : provider.name
+                          isEditing ? null : provider.id
                         );
                         setApiKeyInput("");
                       }}
@@ -131,7 +131,7 @@ export function ProviderSettings() {
                     <GlassButton
                       variant="ghost"
                       icon={<Trash2 size={14} />}
-                      onClick={() => handleRemoveKey(provider.name)}
+                      onClick={() => handleRemoveKey(provider.id)}
                       title="Remove API Key"
                       className="!px-1.5 !py-1"
                     />
@@ -150,7 +150,7 @@ export function ProviderSettings() {
                     </div>
                     <GlassButton
                       variant="primary"
-                      onClick={() => handleSaveKey(provider.name)}
+                      onClick={() => handleSaveKey(provider.id)}
                       disabled={!apiKeyInput.trim()}
                     >
                       Save
@@ -159,12 +159,12 @@ export function ProviderSettings() {
                 )}
 
                 {/* Status message */}
-                {saveStatus[provider.name] && (
+                {saveStatus[provider.id] && (
                   <div
                     className="text-[10px] mt-1"
                     style={{ color: "var(--text-secondary)" }}
                   >
-                    {saveStatus[provider.name]}
+                    {saveStatus[provider.id]}
                   </div>
                 )}
               </div>

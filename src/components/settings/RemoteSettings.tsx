@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { GlassPanel } from "@/src/design-system/GlassPanel";
 import { GlassButton } from "@/src/design-system/GlassButton";
 import { GlassInput } from "@/src/design-system/GlassInput";
 import { StatusDot } from "@/src/design-system/StatusDot";
@@ -19,8 +18,8 @@ export function RemoteSettings() {
   async function loadStatus() {
     try {
       const status = await api.getRemoteStatus();
-      setEnabled(status.running);
-      if (status.port) setPort(String(status.port));
+      setEnabled(status.enabled);
+      setPort(String(status.port));
       const t = await api.getRemoteToken();
       setToken(t);
     } catch (e) {

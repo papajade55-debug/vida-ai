@@ -28,7 +28,10 @@ mod tests {
 
     #[test]
     fn test_config_serialization() {
-        let config = AppConfig { language: "fr".to_string(), theme: "light".to_string() };
+        let config = AppConfig {
+            language: "fr".to_string(),
+            theme: "light".to_string(),
+        };
         let json = serde_json::to_string(&config).unwrap();
         let deserialized: AppConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.language, "fr");

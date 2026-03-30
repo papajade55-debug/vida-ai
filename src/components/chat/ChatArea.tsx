@@ -2,6 +2,7 @@ import { useState, useCallback, DragEvent } from "react";
 import { Upload, MessageSquarePlus } from "lucide-react";
 import { GlassPanel } from "@/src/design-system/GlassPanel";
 import { GlassButton } from "@/src/design-system/GlassButton";
+import { useProviders } from "@/src/hooks/useProviders";
 import { useStore } from "@/src/stores/store";
 import { api } from "@/src/lib/tauri";
 import { ChatHeader } from "./ChatHeader";
@@ -20,6 +21,7 @@ function isTextFile(file: File): boolean {
 export function ChatArea() {
   const currentSessionId = useStore((s) => s.currentSessionId);
   const sessions = useStore((s) => s.sessions);
+  const { providers } = useProviders();
   const [isDragging, setIsDragging] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
 
@@ -101,7 +103,14 @@ export function ChatArea() {
   const handleStartChat = async () => {
     setChatError("Creating session...");
     try {
-      const session = await api.createSession("ollama", "qwen3:14b");
+      const fallbackProvider = providers.find((provider) => provider.models.length > 0);
+      if (!fallbackProvider) {
+        throw new Error("No provider with an available model is configured");
+      }
+      const session = await api.createSession(
+        fallbackProvider.id,
+        fallbackProvider.models[0],
+      );
       addSession(session);
       setCurrentSession(session.id);
       setMessages(session.id, []);

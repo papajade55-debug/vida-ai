@@ -1,6 +1,6 @@
+pub mod encryption;
 pub mod keychain;
 pub mod pin;
-pub mod encryption;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SecurityError {

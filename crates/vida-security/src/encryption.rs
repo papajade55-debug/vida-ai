@@ -35,7 +35,9 @@ pub fn decrypt(key: &[u8; 32], encoded: &str) -> Result<Vec<u8>, SecurityError> 
         .map_err(|e| SecurityError::EncryptionFailed(e.to_string()))?;
 
     if combined.len() < 13 {
-        return Err(SecurityError::EncryptionFailed("Data too short".to_string()));
+        return Err(SecurityError::EncryptionFailed(
+            "Data too short".to_string(),
+        ));
     }
 
     let (nonce_bytes, ciphertext) = combined.split_at(12);

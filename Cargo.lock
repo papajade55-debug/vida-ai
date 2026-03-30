@@ -5784,6 +5784,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tokio",
+ "uuid",
  "vida-core",
  "vida-db",
  "vida-providers",
@@ -5805,6 +5806,7 @@ dependencies = [
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "tower",
  "tower-http",
  "uuid",
  "vida-db",
@@ -5823,6 +5825,14 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "vida-headless"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "vida-core",
 ]
 
 [[package]]

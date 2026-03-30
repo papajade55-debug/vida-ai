@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
+  AuthSession,
+  AuthUser,
   SessionRow,
   MessageRow,
   ProviderInfo,
@@ -41,6 +43,11 @@ interface McpSlice {
 interface ProvidersSlice {
   providers: ProviderInfo[];
   providerHealth: Record<string, boolean>;
+}
+
+interface AuthSlice {
+  authActor: AuthSession | null;
+  authUsers: AuthUser[];
 }
 
 type Theme = "light" | "dark";
@@ -93,6 +100,11 @@ interface ProvidersActions {
   setProviderHealth: (health: Record<string, boolean>) => void;
 }
 
+interface AuthActions {
+  setAuthActor: (actor: AuthSession | null) => void;
+  setAuthUsers: (users: AuthUser[]) => void;
+}
+
 interface UiActions {
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
@@ -107,6 +119,7 @@ type StoreState = SessionsSlice &
   McpSlice &
   WorkspaceSlice &
   ProvidersSlice &
+  AuthSlice &
   UiSlice &
   SessionsActions &
   MessagesActions &
@@ -114,6 +127,7 @@ type StoreState = SessionsSlice &
   McpActions &
   WorkspaceActions &
   ProvidersActions &
+  AuthActions &
   UiActions;
 
 // ── Store ──
@@ -241,6 +255,13 @@ export const useStore = create<StoreState>()(
       setProviders: (providers) => set({ providers }),
 
       setProviderHealth: (health) => set({ providerHealth: health }),
+
+      // ── Auth slice ──
+      authActor: null,
+      authUsers: [],
+
+      setAuthActor: (actor) => set({ authActor: actor }),
+      setAuthUsers: (users) => set({ authUsers: users }),
 
       // ── UI slice ──
       theme: "dark",

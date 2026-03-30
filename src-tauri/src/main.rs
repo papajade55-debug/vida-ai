@@ -15,12 +15,13 @@ fn is_headless() -> bool {
 /// Run Vida AI in headless mode (HTTP/WS server only, no GUI).
 #[cfg(feature = "remote")]
 async fn run_headless() {
-    use vida_core::{RemoteServer, generate_token};
+    use vida_core::{generate_token, RemoteServer};
 
     let port: u16 = std::env::var("VIDA_PORT")
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(3690);
+    let bind_addr = std::env::var("VIDA_BIND_ADDR").unwrap_or_else(|_| "0.0.0.0".to_string());
 
     let data_dir = std::env::var("VIDA_DATA_DIR")
         .map(std::path::PathBuf::from)
@@ -31,6 +32,7 @@ async fn run_headless() {
 
     eprintln!("Vida AI — Headless Mode");
     eprintln!("  Data dir: {}", data_dir.display());
+    eprintln!("  Bind:     {}", bind_addr);
     eprintln!("  Port:     {}", port);
 
     let engine = VidaEngine::init(&data_dir)
@@ -40,21 +42,23 @@ async fn run_headless() {
     // Generate or retrieve token
     let token = engine
         .get_remote_token()
+        .or_else(|_| engine.generate_remote_token())
         .unwrap_or_else(|_| {
             let t = generate_token();
             eprintln!("  Token:    {}", t);
-            // Persist token to a file for convenience
-            let token_path = data_dir.join(".token");
-            let _ = std::fs::write(&token_path, &t);
             t
         });
 
-    eprintln!("  Token:    {}…{}", &token[..8], &token[token.len()-4..]);
-    eprintln!("  Health:   http://0.0.0.0:{}/api/health", port);
+    eprintln!("  Token:    {}…{}", &token[..8], &token[token.len() - 4..]);
+    eprintln!("  Health:   http://{}:{}/api/health", bind_addr, port);
     eprintln!();
 
+    let token_path = data_dir.join(".token");
+    let _ = std::fs::create_dir_all(&data_dir);
+    let _ = std::fs::write(&token_path, &token);
+
     let engine_arc = Arc::new(RwLock::new(engine));
-    let mut server = RemoteServer::new(port);
+    let mut server = RemoteServer::with_bind_addr(port, bind_addr);
     server
         .start(engine_arc.clone(), token)
         .await
@@ -96,10 +100,19 @@ fn main() {
                 .block_on(VidaEngine::init(&data_dir))
                 .expect("Failed to initialize VidaEngine");
             app.manage(Arc::new(RwLock::new(engine)));
+            app.manage(commands::permissions::PermissionState::default());
+            app.manage(commands::remote::RemoteState::default());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::auth::is_pin_configured,
+            commands::auth::get_auth_status,
+            commands::auth::bootstrap_local_admin,
+            commands::auth::login_local,
+            commands::auth::logout_local,
+            commands::auth::list_users,
+            commands::auth::create_user,
+            commands::auth::change_password,
             commands::auth::store_api_key,
             commands::auth::remove_api_key,
             commands::providers::list_providers,
@@ -116,6 +129,7 @@ fn main() {
             commands::teams::create_team,
             commands::teams::list_teams,
             commands::teams::get_team,
+            commands::teams::set_team_member_role,
             commands::teams::delete_team,
             commands::teams::create_team_session,
             commands::teams::stream_team_completion,
@@ -126,6 +140,7 @@ fn main() {
             commands::workspace::set_workspace_config,
             commands::workspace::get_permission_mode,
             commands::workspace::set_permission_mode,
+            commands::permissions::respond_permission,
             commands::mcp::start_mcp_server,
             commands::mcp::stop_mcp_server,
             commands::mcp::list_mcp_servers,
@@ -133,6 +148,11 @@ fn main() {
             commands::mcp::call_mcp_tool,
             commands::mcp::save_mcp_server_config,
             commands::mcp::delete_mcp_server_config,
+            commands::remote::enable_remote,
+            commands::remote::disable_remote,
+            commands::remote::get_remote_status,
+            commands::remote::get_remote_token,
+            commands::remote::regenerate_remote_token,
         ])
         .run(tauri::generate_context!())
         .expect("error while running vida-ai");

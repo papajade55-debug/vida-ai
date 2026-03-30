@@ -1,9 +1,12 @@
+import type { TeamRole } from "@/src/lib/tauri";
+
 interface TeamMemberBadgeProps {
   name: string;
   color: string;
+  role?: TeamRole | null;
 }
 
-export function TeamMemberBadge({ name, color }: TeamMemberBadgeProps) {
+export function TeamMemberBadge({ name, color, role }: TeamMemberBadgeProps) {
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs"
@@ -18,6 +21,11 @@ export function TeamMemberBadge({ name, color }: TeamMemberBadgeProps) {
         style={{ backgroundColor: color }}
       />
       {name}
+      {role && (
+        <span className="uppercase tracking-wide opacity-70">
+          {role}
+        </span>
+      )}
     </span>
   );
 }

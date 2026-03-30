@@ -14,7 +14,7 @@ export function AgentItem({ provider, healthy, streaming }: AgentItemProps) {
     <div className="flex items-center gap-2 px-3 py-1.5">
       <StatusDot status={status} />
       <span className="text-sm truncate" style={{ color: "var(--text-primary)" }}>
-        {provider.name}
+        {provider.display_name}
       </span>
       <span className="text-xs ml-auto" style={{ color: "var(--text-secondary)" }}>
         {provider.provider_type}

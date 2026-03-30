@@ -28,6 +28,8 @@ struct OllamaChatRequest {
     stream: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     options: Option<OllamaOptions>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<OllamaToolDefinition>>,
 }
 
 #[derive(Serialize)]
@@ -66,7 +68,21 @@ struct OllamaChatResponse {
 
 #[derive(Deserialize)]
 struct OllamaResponseMessage {
+    #[serde(default)]
     content: String,
+    #[serde(default)]
+    tool_calls: Vec<OllamaResponseToolCall>,
+}
+
+#[derive(Deserialize)]
+struct OllamaResponseToolCall {
+    function: OllamaResponseFunction,
+}
+
+#[derive(Deserialize)]
+struct OllamaResponseFunction {
+    name: String,
+    arguments: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -79,6 +95,22 @@ struct OllamaModel {
     name: String,
 }
 
+// ── Ollama tool types ──
+
+#[derive(Serialize)]
+struct OllamaToolDefinition {
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OllamaToolFunction,
+}
+
+#[derive(Serialize)]
+struct OllamaToolFunction {
+    name: String,
+    description: String,
+    parameters: serde_json::Value,
+}
+
 // ── Helpers ──
 
 fn to_ollama_messages(messages: &[ChatMessage]) -> Vec<OllamaMessage> {
@@ -89,6 +121,7 @@ fn to_ollama_messages(messages: &[ChatMessage]) -> Vec<OllamaMessage> {
                 ChatRole::System => "system".to_string(),
                 ChatRole::User => "user".to_string(),
                 ChatRole::Assistant => "assistant".to_string(),
+                ChatRole::Tool => "tool".to_string(),
             },
             content: m.content.clone(),
             images: None,
@@ -103,6 +136,24 @@ fn to_ollama_options(options: &Option<CompletionOptions>) -> Option<OllamaOption
         top_p: o.top_p,
         top_k: o.top_k,
         repeat_penalty: o.repeat_penalty,
+    })
+}
+
+fn to_ollama_tools(options: &Option<CompletionOptions>) -> Option<Vec<OllamaToolDefinition>> {
+    options.as_ref().and_then(|opts| {
+        opts.tools.as_ref().map(|tools| {
+            tools
+                .iter()
+                .map(|tool| OllamaToolDefinition {
+                    tool_type: "function".to_string(),
+                    function: OllamaToolFunction {
+                        name: tool.name.clone(),
+                        description: tool.description.clone(),
+                        parameters: tool.parameters.clone(),
+                    },
+                })
+                .collect()
+        })
     })
 }
 
@@ -123,6 +174,7 @@ impl LLMProvider for OllamaProvider {
             messages: to_ollama_messages(messages),
             stream: false,
             options: to_ollama_options(&options),
+            tools: to_ollama_tools(&options),
         };
 
         let resp = self
@@ -146,6 +198,17 @@ impl LLMProvider for OllamaProvider {
             prompt_tokens: ollama_resp.prompt_eval_count,
             completion_tokens: ollama_resp.eval_count,
             total_tokens: ollama_resp.prompt_eval_count + ollama_resp.eval_count,
+            tool_calls: ollama_resp
+                .message
+                .tool_calls
+                .iter()
+                .enumerate()
+                .map(|(i, tc)| ToolCall {
+                    id: format!("call_{}", i + 1),
+                    name: tc.function.name.clone(),
+                    arguments: tc.function.arguments.clone(),
+                })
+                .collect(),
         })
     }
 
@@ -165,6 +228,7 @@ impl LLMProvider for OllamaProvider {
             messages: to_ollama_messages(messages),
             stream: true,
             options: to_ollama_options(&options),
+            tools: None, // tool calling not supported in streaming mode yet
         };
 
         let resp = self
@@ -177,7 +241,11 @@ impl LLMProvider for OllamaProvider {
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            let _ = tx.send(StreamEvent::Error { error: format!("Ollama {}: {}", status, body) }).await;
+            let _ = tx
+                .send(StreamEvent::Error {
+                    error: format!("Ollama {}: {}", status, body),
+                })
+                .await;
             let _ = tx.send(StreamEvent::Done).await;
             return Err(ProviderError::Api(format!("Ollama {}", status)));
         }
@@ -204,19 +272,29 @@ impl LLMProvider for OllamaProvider {
                                     return Ok(());
                                 }
                                 if !resp.message.content.is_empty() {
-                                    let _ = tx.send(StreamEvent::Token {
-                                        content: resp.message.content,
-                                    }).await;
+                                    let _ = tx
+                                        .send(StreamEvent::Token {
+                                            content: resp.message.content,
+                                        })
+                                        .await;
                                 }
                             }
                             Err(e) => {
-                                let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                                let _ = tx
+                                    .send(StreamEvent::Error {
+                                        error: e.to_string(),
+                                    })
+                                    .await;
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                    let _ = tx
+                        .send(StreamEvent::Error {
+                            error: e.to_string(),
+                        })
+                        .await;
                     let _ = tx.send(StreamEvent::Done).await;
                     return Err(ProviderError::Network(e));
                 }
@@ -249,6 +327,7 @@ impl LLMProvider for OllamaProvider {
             }],
             stream: false,
             options: to_ollama_options(&options),
+            tools: None, // vision requests don't use tool calling
         };
 
         let resp = self
@@ -272,6 +351,7 @@ impl LLMProvider for OllamaProvider {
             prompt_tokens: ollama_resp.prompt_eval_count,
             completion_tokens: ollama_resp.eval_count,
             total_tokens: ollama_resp.prompt_eval_count + ollama_resp.eval_count,
+            tool_calls: vec![],
         })
     }
 
@@ -291,7 +371,8 @@ impl LLMProvider for OllamaProvider {
 
     fn info(&self) -> ProviderInfo {
         ProviderInfo {
-            name: "Ollama".to_string(),
+            id: "ollama".to_string(),
+            display_name: "Ollama".to_string(),
             provider_type: ProviderType::Local,
             models: vec![], // populated by list_models()
         }
@@ -320,8 +401,18 @@ mod tests {
     #[test]
     fn test_to_ollama_messages() {
         let messages = vec![
-            ChatMessage { role: ChatRole::System, content: "Be helpful.".to_string() },
-            ChatMessage { role: ChatRole::User, content: "Hello".to_string() },
+            ChatMessage {
+                role: ChatRole::System,
+                content: "Be helpful.".to_string(),
+                tool_call_id: None,
+                name: None,
+            },
+            ChatMessage {
+                role: ChatRole::User,
+                content: "Hello".to_string(),
+                tool_call_id: None,
+                name: None,
+            },
         ];
         let ollama_msgs = to_ollama_messages(&messages);
         assert_eq!(ollama_msgs.len(), 2);
@@ -345,7 +436,23 @@ mod tests {
     fn test_ollama_provider_info() {
         let provider = OllamaProvider::new("http://localhost:11434");
         let info = provider.info();
-        assert_eq!(info.name, "Ollama");
+        assert_eq!(info.id, "ollama");
+        assert_eq!(info.display_name, "Ollama");
         assert_eq!(info.provider_type, ProviderType::Local);
+    }
+
+    #[test]
+    fn test_to_ollama_tools() {
+        let opts = Some(CompletionOptions {
+            tools: Some(vec![ToolDefinition {
+                name: "read_file".to_string(),
+                description: "Read a file".to_string(),
+                parameters: serde_json::json!({"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}),
+            }]),
+            ..Default::default()
+        });
+        let tools = to_ollama_tools(&opts).unwrap();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].function.name, "read_file");
     }
 }

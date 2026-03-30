@@ -24,8 +24,8 @@ impl PinManager {
 
     /// Verify a password/PIN against a stored PHC hash string.
     pub fn verify_password(password: &str, hash: &str) -> Result<bool, SecurityError> {
-        let parsed_hash = PasswordHash::new(hash)
-            .map_err(|e| SecurityError::HashingFailed(e.to_string()))?;
+        let parsed_hash =
+            PasswordHash::new(hash).map_err(|e| SecurityError::HashingFailed(e.to_string()))?;
 
         Ok(Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)

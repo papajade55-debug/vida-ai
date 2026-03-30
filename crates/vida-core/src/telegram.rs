@@ -129,8 +129,11 @@ mod bot {
         let chat_id = msg.chat.id.0;
 
         if !is_allowed(chat_id, &allowed_chat_ids) {
-            bot.send_message(msg.chat.id, "⛔ Unauthorized. Your chat ID is not in the allowed list.")
-                .await?;
+            bot.send_message(
+                msg.chat.id,
+                "⛔ Unauthorized. Your chat ID is not in the allowed list.",
+            )
+            .await?;
             return Ok(());
         }
 
@@ -149,16 +152,17 @@ mod bot {
             }
             Command::Models => {
                 let e = engine.read().await;
-                let providers = e.list_providers();
+                let providers = e.list_providers().await;
                 let mut text = String::from("📋 *Available Models*\n\n");
                 for p in &providers {
-                    text.push_str(&format!("*{}* ({:?})\n", p.name, p.provider_type));
+                    text.push_str(&format!("*{}* ({:?})\n", p.display_name, p.provider_type));
                     for m in &p.models {
                         text.push_str(&format!("  • `{}`\n", m));
                     }
                     text.push('\n');
                 }
-                let md_result = bot.send_message(msg.chat.id, text)
+                let md_result = bot
+                    .send_message(msg.chat.id, text)
                     .parse_mode(ParseMode::MarkdownV2)
                     .await;
                 if md_result.is_err() {
@@ -215,14 +219,13 @@ mod bot {
         bot.send_chat_action(msg.chat.id, teloxide::types::ChatAction::Typing)
             .await?;
 
-        let e = engine.read().await;
-
         // Get or create a session
         let session_id = match default_session_id {
             Some(sid) => sid.clone(),
             None => {
                 // Create a temporary session using the first available provider
-                let providers = e.list_providers();
+                let e = engine.read().await;
+                let providers = e.list_providers().await;
                 if providers.is_empty() {
                     bot.send_message(msg.chat.id, "❌ No providers configured.")
                         .await?;
@@ -230,11 +233,10 @@ mod bot {
                 }
                 let provider = &providers[0];
                 let model = provider.models.first().cloned().unwrap_or_default();
-                match e.create_session(&provider.name, &model).await {
+                match e.create_session(&provider.id, &model).await {
                     Ok(session) => session.id,
                     Err(err) => {
-                        bot.send_message(msg.chat.id, format!("❌ {}", err))
-                            .await?;
+                        bot.send_message(msg.chat.id, format!("❌ {}", err)).await?;
                         return Ok(());
                     }
                 }
@@ -242,6 +244,7 @@ mod bot {
         };
 
         // Send the message
+        let mut e = engine.write().await;
         match e.send_message(&session_id, user_text).await {
             Ok(response) => {
                 // Truncate if too long for Telegram (4096 char limit)
@@ -265,7 +268,7 @@ mod bot {
 // ── Public re-exports ──
 
 #[cfg(feature = "telegram")]
-pub use bot::{TelegramBot, TelegramConfig, Command as TelegramCommand};
+pub use bot::{Command as TelegramCommand, TelegramBot, TelegramConfig};
 
 // ── Tests ──
 

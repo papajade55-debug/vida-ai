@@ -41,6 +41,8 @@ struct AnthropicChatRequest {
     top_p: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     top_k: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<AnthropicToolDefinition>>,
     stream: bool,
 }
 
@@ -48,6 +50,13 @@ struct AnthropicChatRequest {
 struct AnthropicMessage {
     role: String,
     content: serde_json::Value,
+}
+
+#[derive(Serialize)]
+struct AnthropicToolDefinition {
+    name: String,
+    description: String,
+    input_schema: serde_json::Value,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +73,12 @@ struct AnthropicContentBlock {
     block_type: String,
     #[serde(default)]
     text: Option<String>,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    input: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -80,6 +95,8 @@ struct AnthropicStreamEvent {
     event_type: String,
     #[serde(default)]
     delta: Option<AnthropicStreamDelta>,
+    #[serde(default)]
+    content_block: Option<AnthropicStreamContentBlock>,
 }
 
 #[derive(Deserialize)]
@@ -92,6 +109,18 @@ struct AnthropicStreamDelta {
     text: Option<String>,
     #[serde(default)]
     stop_reason: Option<String>,
+    #[serde(default)]
+    partial_json: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct AnthropicStreamContentBlock {
+    #[serde(rename = "type")]
+    block_type: String,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -108,7 +137,9 @@ struct AnthropicErrorBody {
 
 /// Convert ChatMessage list to Anthropic format.
 /// Extracts system messages into a separate string (Anthropic requires system as top-level field).
-fn extract_system_and_messages(messages: &[ChatMessage]) -> (Option<String>, Vec<AnthropicMessage>) {
+fn extract_system_and_messages(
+    messages: &[ChatMessage],
+) -> (Option<String>, Vec<AnthropicMessage>) {
     let mut system_parts = Vec::new();
     let mut anthropic_msgs = Vec::new();
 
@@ -124,9 +155,32 @@ fn extract_system_and_messages(messages: &[ChatMessage]) -> (Option<String>, Vec
                 });
             }
             ChatRole::Assistant => {
+                if let (Some(tool_call_id), Some(name)) = (&m.tool_call_id, &m.name) {
+                    anthropic_msgs.push(AnthropicMessage {
+                        role: "assistant".to_string(),
+                        content: serde_json::json!([{
+                            "type": "tool_use",
+                            "id": tool_call_id,
+                            "name": name,
+                            "input": extract_tool_call_arguments(&m.content)
+                                .unwrap_or_else(|| serde_json::json!({})),
+                        }]),
+                    });
+                } else {
+                    anthropic_msgs.push(AnthropicMessage {
+                        role: "assistant".to_string(),
+                        content: serde_json::Value::String(m.content.clone()),
+                    });
+                }
+            }
+            ChatRole::Tool => {
                 anthropic_msgs.push(AnthropicMessage {
-                    role: "assistant".to_string(),
-                    content: serde_json::Value::String(m.content.clone()),
+                    role: "user".to_string(),
+                    content: serde_json::json!([{
+                        "type": "tool_result",
+                        "tool_use_id": m.tool_call_id.clone().unwrap_or_default(),
+                        "content": m.content,
+                    }]),
                 });
             }
         }
@@ -139,6 +193,41 @@ fn extract_system_and_messages(messages: &[ChatMessage]) -> (Option<String>, Vec
     };
 
     (system, anthropic_msgs)
+}
+
+fn to_anthropic_tools(options: &Option<CompletionOptions>) -> Option<Vec<AnthropicToolDefinition>> {
+    options.as_ref().and_then(|opts| {
+        opts.tools.as_ref().map(|tools| {
+            tools
+                .iter()
+                .map(|tool| AnthropicToolDefinition {
+                    name: tool.name.clone(),
+                    description: tool.description.clone(),
+                    input_schema: tool.parameters.clone(),
+                })
+                .collect()
+        })
+    })
+}
+
+fn extract_tool_call_arguments(content: &str) -> Option<serde_json::Value> {
+    let start = content.find("<tool_call>")?;
+    let after = &content[start + "<tool_call>".len()..];
+    let end = after.find("</tool_call>")?;
+    let payload: serde_json::Value = serde_json::from_str(after[..end].trim()).ok()?;
+    payload.get("arguments").cloned()
+}
+
+fn parse_anthropic_tool_calls(blocks: &[AnthropicContentBlock]) -> Vec<ToolCall> {
+    blocks
+        .iter()
+        .filter(|block| block.block_type == "tool_use")
+        .map(|block| ToolCall {
+            id: block.id.clone().unwrap_or_default(),
+            name: block.name.clone().unwrap_or_default(),
+            arguments: block.input.clone().unwrap_or_else(|| serde_json::json!({})),
+        })
+        .collect()
 }
 
 #[async_trait]
@@ -163,6 +252,7 @@ impl LLMProvider for AnthropicProvider {
             max_tokens: Some(options.as_ref().and_then(|o| o.max_tokens).unwrap_or(4096)),
             top_p: options.as_ref().and_then(|o| o.top_p),
             top_k: options.as_ref().and_then(|o| o.top_k),
+            tools: to_anthropic_tools(&options),
             stream: false,
         };
 
@@ -189,6 +279,7 @@ impl LLMProvider for AnthropicProvider {
         }
 
         let api_resp: AnthropicChatResponse = resp.json().await?;
+        let tool_calls = parse_anthropic_tool_calls(&api_resp.content);
 
         let content = api_resp
             .content
@@ -210,6 +301,7 @@ impl LLMProvider for AnthropicProvider {
             prompt_tokens: usage.input_tokens,
             completion_tokens: usage.output_tokens,
             total_tokens: usage.input_tokens + usage.output_tokens,
+            tool_calls,
         })
     }
 
@@ -234,6 +326,7 @@ impl LLMProvider for AnthropicProvider {
             max_tokens: Some(options.as_ref().and_then(|o| o.max_tokens).unwrap_or(4096)),
             top_p: options.as_ref().and_then(|o| o.top_p),
             top_k: options.as_ref().and_then(|o| o.top_k),
+            tools: to_anthropic_tools(&options),
             stream: true,
         };
 
@@ -249,7 +342,11 @@ impl LLMProvider for AnthropicProvider {
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            let _ = tx.send(StreamEvent::Error { error: body.clone() }).await;
+            let _ = tx
+                .send(StreamEvent::Error {
+                    error: body.clone(),
+                })
+                .await;
             let _ = tx.send(StreamEvent::Done).await;
             return Err(ProviderError::Api(body));
         }
@@ -257,6 +354,10 @@ impl LLMProvider for AnthropicProvider {
         use futures_util::StreamExt;
         let mut stream = resp.bytes_stream();
         let mut buffer = String::new();
+
+        let mut current_tool_id: Option<String> = None;
+        let mut current_tool_name: Option<String> = None;
+        let mut current_tool_input = String::new();
 
         while let Some(chunk) = stream.next().await {
             match chunk {
@@ -279,6 +380,15 @@ impl LLMProvider for AnthropicProvider {
                         match serde_json::from_str::<AnthropicStreamEvent>(data) {
                             Ok(event) => {
                                 match event.event_type.as_str() {
+                                    "content_block_start" => {
+                                        if let Some(block) = &event.content_block {
+                                            if block.block_type == "tool_use" {
+                                                current_tool_id = block.id.clone();
+                                                current_tool_name = block.name.clone();
+                                                current_tool_input.clear();
+                                            }
+                                        }
+                                    }
                                     "content_block_delta" => {
                                         if let Some(delta) = &event.delta {
                                             if let Some(text) = &delta.text {
@@ -290,6 +400,23 @@ impl LLMProvider for AnthropicProvider {
                                                         .await;
                                                 }
                                             }
+                                            if let Some(partial) = &delta.partial_json {
+                                                current_tool_input.push_str(partial);
+                                            }
+                                        }
+                                    }
+                                    "content_block_stop" => {
+                                        if let (Some(id), Some(name)) = (&current_tool_id, &current_tool_name) {
+                                            let args: serde_json::Value = serde_json::from_str(&current_tool_input)
+                                                .unwrap_or(serde_json::json!({}));
+                                            let tag = format!(
+                                                "<tool_call>{{\"id\":\"{}\",\"name\":\"{}\",\"arguments\":{}}}</tool_call>",
+                                                id, name, args
+                                            );
+                                            let _ = tx.send(StreamEvent::Token { content: tag }).await;
+                                            current_tool_id = None;
+                                            current_tool_name = None;
+                                            current_tool_input.clear();
                                         }
                                     }
                                     "message_stop" => {
@@ -304,7 +431,7 @@ impl LLMProvider for AnthropicProvider {
                                             }
                                         }
                                     }
-                                    _ => {} // message_start, content_block_start, content_block_stop, ping
+                                    _ => {}
                                 }
                             }
                             Err(_) => {
@@ -314,7 +441,11 @@ impl LLMProvider for AnthropicProvider {
                     }
                 }
                 Err(e) => {
-                    let _ = tx.send(StreamEvent::Error { error: e.to_string() }).await;
+                    let _ = tx
+                        .send(StreamEvent::Error {
+                            error: e.to_string(),
+                        })
+                        .await;
                     let _ = tx.send(StreamEvent::Done).await;
                     return Err(ProviderError::Network(e));
                 }
@@ -399,6 +530,7 @@ impl LLMProvider for AnthropicProvider {
             prompt_tokens: usage.input_tokens,
             completion_tokens: usage.output_tokens,
             total_tokens: usage.input_tokens + usage.output_tokens,
+            tool_calls: vec![],
         })
     }
 
@@ -431,7 +563,8 @@ impl LLMProvider for AnthropicProvider {
 
     fn info(&self) -> ProviderInfo {
         ProviderInfo {
-            name: "Anthropic".to_string(),
+            id: "anthropic".to_string(),
+            display_name: "Anthropic".to_string(),
             provider_type: ProviderType::Cloud,
             models: vec![],
         }
@@ -454,10 +587,14 @@ mod tests {
 
     #[test]
     fn test_anthropic_provider_info() {
-        let provider =
-            AnthropicProvider::new("https://api.anthropic.com", "sk-ant-test", "claude-sonnet-4-20250514");
+        let provider = AnthropicProvider::new(
+            "https://api.anthropic.com",
+            "sk-ant-test",
+            "claude-sonnet-4-20250514",
+        );
         let info = provider.info();
-        assert_eq!(info.name, "Anthropic");
+        assert_eq!(info.id, "anthropic");
+        assert_eq!(info.display_name, "Anthropic");
         assert_eq!(info.provider_type, ProviderType::Cloud);
     }
 
@@ -467,14 +604,20 @@ mod tests {
             ChatMessage {
                 role: ChatRole::System,
                 content: "You are helpful.".to_string(),
+                tool_call_id: None,
+                name: None,
             },
             ChatMessage {
                 role: ChatRole::User,
                 content: "Hi".to_string(),
+                tool_call_id: None,
+                name: None,
             },
             ChatMessage {
                 role: ChatRole::Assistant,
                 content: "Hello!".to_string(),
+                tool_call_id: None,
+                name: None,
             },
         ];
         let (system, msgs) = extract_system_and_messages(&messages);
@@ -485,13 +628,53 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_system_and_messages_with_tool_messages() {
+        let messages = vec![
+            ChatMessage {
+                role: ChatRole::Assistant,
+                content: r#"<tool_call>{"id":"toolu_1","name":"read_file","arguments":{"path":"/tmp/demo.txt"}}</tool_call>"#.to_string(),
+                tool_call_id: Some("toolu_1".to_string()),
+                name: Some("read_file".to_string()),
+            },
+            ChatMessage {
+                role: ChatRole::Tool,
+                content: "demo file content".to_string(),
+                tool_call_id: Some("toolu_1".to_string()),
+                name: Some("read_file".to_string()),
+            },
+        ];
+
+        let (_, msgs) = extract_system_and_messages(&messages);
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].role, "assistant");
+        assert_eq!(msgs[1].role, "user");
+        assert!(msgs[0].content.to_string().contains("\"tool_use\""));
+        assert!(msgs[1].content.to_string().contains("\"tool_result\""));
+    }
+
+    #[test]
+    fn test_parse_anthropic_tool_calls() {
+        let calls = parse_anthropic_tool_calls(&[AnthropicContentBlock {
+            block_type: "tool_use".to_string(),
+            text: None,
+            id: Some("toolu_1".to_string()),
+            name: Some("read_file".to_string()),
+            input: Some(serde_json::json!({"path":"/tmp/demo.txt"})),
+        }]);
+
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls[0].name, "read_file");
+        assert_eq!(calls[0].arguments["path"], "/tmp/demo.txt");
+    }
+
+    #[test]
     fn test_anthropic_compatible_base_url() {
-        let provider =
-            AnthropicProvider::new("https://custom-proxy.example.com/", "key-123", "claude-3-5-haiku-20241022");
-        assert_eq!(
-            provider.base_url,
-            "https://custom-proxy.example.com"
+        let provider = AnthropicProvider::new(
+            "https://custom-proxy.example.com/",
+            "key-123",
+            "claude-3-5-haiku-20241022",
         );
+        assert_eq!(provider.base_url, "https://custom-proxy.example.com");
         assert_eq!(provider.default_model, "claude-3-5-haiku-20241022");
     }
 }

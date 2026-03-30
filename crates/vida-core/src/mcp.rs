@@ -76,12 +76,20 @@ pub enum McpError {
 /// Manages MCP server processes and tool routing.
 pub struct McpManager {
     servers: HashMap<String, McpServerHandle>,
+    #[cfg(test)]
+    test_tools: Vec<McpTool>,
+    #[cfg(test)]
+    test_tool_results: HashMap<String, McpToolResult>,
 }
 
 impl McpManager {
     pub fn new() -> Self {
         Self {
             servers: HashMap::new(),
+            #[cfg(test)]
+            test_tools: Vec::new(),
+            #[cfg(test)]
+            test_tool_results: HashMap::new(),
         }
     }
 
@@ -109,9 +117,13 @@ impl McpManager {
 
         let mut child = cmd.spawn()?;
 
-        let stdin = child.stdin.take()
+        let stdin = child
+            .stdin
+            .take()
             .ok_or_else(|| McpError::Protocol("Failed to capture stdin".to_string()))?;
-        let stdout = child.stdout.take()
+        let stdout = child
+            .stdout
+            .take()
             .ok_or_else(|| McpError::Protocol("Failed to capture stdout".to_string()))?;
 
         let mut handle = McpServerHandle {
@@ -168,7 +180,9 @@ impl McpManager {
 
     /// Stop a running MCP server.
     pub fn stop_server(&mut self, name: &str) -> Result<(), McpError> {
-        let mut handle = self.servers.remove(name)
+        let mut handle = self
+            .servers
+            .remove(name)
             .ok_or_else(|| McpError::ServerNotFound(name.to_string()))?;
         let _ = handle.process.kill();
         let _ = handle.process.wait();
@@ -191,10 +205,20 @@ impl McpManager {
 
     /// List all tools from all running servers.
     pub fn list_tools(&self) -> Vec<McpTool> {
-        self.servers
+        let tools: Vec<McpTool> = self
+            .servers
             .values()
             .flat_map(|h| h.tools.iter().cloned())
-            .collect()
+            .collect();
+
+        #[cfg(test)]
+        let tools = {
+            let mut tools = tools;
+            tools.extend(self.test_tools.clone());
+            tools
+        };
+
+        tools
     }
 
     /// Call a tool by name, routing to the correct server.
@@ -203,14 +227,22 @@ impl McpManager {
         tool_name: &str,
         arguments: serde_json::Value,
     ) -> Result<McpToolResult, McpError> {
+        #[cfg(test)]
+        if let Some(result) = self.test_tool_results.get(tool_name) {
+            return Ok(result.clone());
+        }
+
         // Find which server owns this tool
-        let server_name = self.servers
+        let server_name = self
+            .servers
             .iter()
             .find(|(_, h)| h.tools.iter().any(|t| t.name == tool_name))
             .map(|(name, _)| name.clone())
             .ok_or_else(|| McpError::ToolNotFound(tool_name.to_string()))?;
 
-        let handle = self.servers.get_mut(&server_name)
+        let handle = self
+            .servers
+            .get_mut(&server_name)
             .ok_or_else(|| McpError::ServerNotFound(server_name.clone()))?;
 
         let req_id = handle.next_request_id();
@@ -238,6 +270,12 @@ impl McpManager {
     /// Get the number of running servers.
     pub fn running_count(&self) -> usize {
         self.servers.len()
+    }
+
+    #[cfg(test)]
+    pub fn register_test_tool(&mut self, tool: McpTool, result: McpToolResult) {
+        self.test_tool_results.insert(tool.name.clone(), result);
+        self.test_tools.push(tool);
     }
 }
 

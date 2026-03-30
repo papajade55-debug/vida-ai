@@ -57,6 +57,27 @@ pub struct TeamMemberRow {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct UserRow {
+    pub id: String,
+    pub username: String,
+    pub password_hash: String,
+    pub role: String,
+    pub active: i32,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct AuditEventRow {
+    pub id: String,
+    pub actor_username: Option<String>,
+    pub actor_role: Option<String>,
+    pub event_type: String,
+    pub resource: Option<String>,
+    pub details_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct RecentWorkspaceRow {
     pub path: String,
     pub name: String,

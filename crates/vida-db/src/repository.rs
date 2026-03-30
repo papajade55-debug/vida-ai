@@ -1,4 +1,5 @@
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
+use sqlx::QueryBuilder;
 
 use crate::models::*;
 
@@ -59,7 +60,7 @@ impl Database {
     pub async fn set_config(&self, key: &str, value: &str) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO app_config (key, value, updated_at) VALUES (?, ?, datetime('now'))
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')"
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')",
         )
         .bind(key)
         .bind(value)
@@ -96,10 +97,11 @@ impl Database {
     }
 
     pub async fn get_provider(&self, id: &str) -> Result<Option<ProviderConfigRow>, DbError> {
-        let row = sqlx::query_as::<_, ProviderConfigRow>("SELECT * FROM provider_configs WHERE id = ?")
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await?;
+        let row =
+            sqlx::query_as::<_, ProviderConfigRow>("SELECT * FROM provider_configs WHERE id = ?")
+                .bind(id)
+                .fetch_optional(&self.pool)
+                .await?;
         Ok(row)
     }
 
@@ -123,7 +125,7 @@ impl Database {
 
     pub async fn list_sessions(&self, limit: u32) -> Result<Vec<SessionRow>, DbError> {
         let rows = sqlx::query_as::<_, SessionRow>(
-            "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?"
+            "SELECT * FROM sessions ORDER BY updated_at DESC LIMIT ?",
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -169,7 +171,7 @@ impl Database {
 
     pub async fn get_messages(&self, session_id: &str) -> Result<Vec<MessageRow>, DbError> {
         let rows = sqlx::query_as::<_, MessageRow>(
-            "SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC"
+            "SELECT * FROM messages WHERE session_id = ? ORDER BY created_at ASC",
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -182,7 +184,7 @@ impl Database {
     pub async fn create_team(&self, team: &TeamRow) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO teams (id, name, mode, created_at)
-             VALUES (?, ?, ?, datetime('now'))"
+             VALUES (?, ?, ?, datetime('now'))",
         )
         .bind(&team.id)
         .bind(&team.name)
@@ -193,11 +195,9 @@ impl Database {
     }
 
     pub async fn list_teams(&self) -> Result<Vec<TeamRow>, DbError> {
-        let rows = sqlx::query_as::<_, TeamRow>(
-            "SELECT * FROM teams ORDER BY created_at DESC"
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let rows = sqlx::query_as::<_, TeamRow>("SELECT * FROM teams ORDER BY created_at DESC")
+            .fetch_all(&self.pool)
+            .await?;
         Ok(rows)
     }
 
@@ -236,7 +236,7 @@ impl Database {
 
     pub async fn get_team_members(&self, team_id: &str) -> Result<Vec<TeamMemberRow>, DbError> {
         let rows = sqlx::query_as::<_, TeamMemberRow>(
-            "SELECT * FROM team_members WHERE team_id = ? ORDER BY created_at ASC"
+            "SELECT * FROM team_members WHERE team_id = ? ORDER BY created_at ASC",
         )
         .bind(team_id)
         .fetch_all(&self.pool)
@@ -252,12 +252,152 @@ impl Database {
         Ok(())
     }
 
+    pub async fn update_team_member_role(&self, id: &str, role: &str) -> Result<(), DbError> {
+        sqlx::query("UPDATE team_members SET role = ? WHERE id = ?")
+            .bind(role)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    // ── Users / Auth ──
+
+    pub async fn create_user(&self, user: &UserRow) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO users (id, username, password_hash, role, active, created_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'))",
+        )
+        .bind(&user.id)
+        .bind(&user.username)
+        .bind(&user.password_hash)
+        .bind(&user.role)
+        .bind(user.active)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn count_users(&self) -> Result<i64, DbError> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
+    pub async fn list_users(&self) -> Result<Vec<UserRow>, DbError> {
+        let rows = sqlx::query_as::<_, UserRow>("SELECT * FROM users ORDER BY created_at ASC")
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows)
+    }
+
+    pub async fn get_user_by_username(&self, username: &str) -> Result<Option<UserRow>, DbError> {
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE username = ?")
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row)
+    }
+
+    pub async fn get_user(&self, id: &str) -> Result<Option<UserRow>, DbError> {
+        let row = sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row)
+    }
+
+    pub async fn update_user_password(&self, id: &str, password_hash: &str) -> Result<(), DbError> {
+        sqlx::query("UPDATE users SET password_hash = ? WHERE id = ?")
+            .bind(password_hash)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
+    // ── Audit ──
+
+    pub async fn insert_audit_event(&self, event: &AuditEventRow) -> Result<(), DbError> {
+        sqlx::query(
+            "INSERT INTO audit_events (id, actor_username, actor_role, event_type, resource, details_json, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+        )
+        .bind(&event.id)
+        .bind(&event.actor_username)
+        .bind(&event.actor_role)
+        .bind(&event.event_type)
+        .bind(&event.resource)
+        .bind(&event.details_json)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn list_audit_events(&self, limit: u32) -> Result<Vec<AuditEventRow>, DbError> {
+        let rows = sqlx::query_as::<_, AuditEventRow>(
+            "SELECT * FROM audit_events ORDER BY created_at DESC LIMIT ?",
+        )
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(rows)
+    }
+
+    pub async fn list_audit_events_filtered(
+        &self,
+        limit: u32,
+        actor_username: Option<&str>,
+        event_type: Option<&str>,
+        created_after: Option<&str>,
+    ) -> Result<Vec<AuditEventRow>, DbError> {
+        let mut builder = QueryBuilder::new("SELECT * FROM audit_events");
+        let mut has_where = false;
+
+        if let Some(actor_username) = actor_username {
+            builder.push(if has_where { " AND " } else { " WHERE " });
+            builder.push("actor_username = ");
+            builder.push_bind(actor_username);
+            has_where = true;
+        }
+
+        if let Some(event_type) = event_type {
+            builder.push(if has_where { " AND " } else { " WHERE " });
+            builder.push("event_type = ");
+            builder.push_bind(event_type);
+            has_where = true;
+        }
+
+        if let Some(created_after) = created_after {
+            builder.push(if has_where { " AND " } else { " WHERE " });
+            builder.push("created_at >= ");
+            builder.push_bind(created_after);
+        }
+
+        builder.push(" ORDER BY created_at DESC LIMIT ");
+        builder.push_bind(i64::from(limit));
+
+        let rows = builder
+            .build_query_as::<AuditEventRow>()
+            .fetch_all(&self.pool)
+            .await?;
+        Ok(rows)
+    }
+
+    pub async fn count_audit_events(&self) -> Result<i64, DbError> {
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM audit_events")
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(count)
+    }
+
     // ── Workspaces ──
 
     pub async fn add_recent_workspace(&self, path: &str, name: &str) -> Result<(), DbError> {
         sqlx::query(
             "INSERT INTO recent_workspaces (path, name, last_used) VALUES (?, ?, datetime('now'))
-             ON CONFLICT(path) DO UPDATE SET name = excluded.name, last_used = datetime('now')"
+             ON CONFLICT(path) DO UPDATE SET name = excluded.name, last_used = datetime('now')",
         )
         .bind(path)
         .bind(name)
@@ -266,9 +406,12 @@ impl Database {
         Ok(())
     }
 
-    pub async fn list_recent_workspaces(&self, limit: u32) -> Result<Vec<RecentWorkspaceRow>, DbError> {
+    pub async fn list_recent_workspaces(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<RecentWorkspaceRow>, DbError> {
         let rows = sqlx::query_as::<_, RecentWorkspaceRow>(
-            "SELECT * FROM recent_workspaces ORDER BY last_used DESC LIMIT ?"
+            "SELECT * FROM recent_workspaces ORDER BY last_used DESC LIMIT ?",
         )
         .bind(limit)
         .fetch_all(&self.pool)
@@ -306,7 +449,10 @@ impl Database {
         Ok(())
     }
 
-    pub async fn list_mcp_servers(&self, workspace_path: Option<&str>) -> Result<Vec<McpServerConfigRow>, DbError> {
+    pub async fn list_mcp_servers(
+        &self,
+        workspace_path: Option<&str>,
+    ) -> Result<Vec<McpServerConfigRow>, DbError> {
         match workspace_path {
             Some(path) => {
                 let rows = sqlx::query_as::<_, McpServerConfigRow>(
@@ -319,7 +465,7 @@ impl Database {
             }
             None => {
                 let rows = sqlx::query_as::<_, McpServerConfigRow>(
-                    "SELECT * FROM mcp_server_configs ORDER BY name"
+                    "SELECT * FROM mcp_server_configs ORDER BY name",
                 )
                 .fetch_all(&self.pool)
                 .await?;
@@ -330,7 +476,7 @@ impl Database {
 
     pub async fn get_mcp_server(&self, id: &str) -> Result<Option<McpServerConfigRow>, DbError> {
         let row = sqlx::query_as::<_, McpServerConfigRow>(
-            "SELECT * FROM mcp_server_configs WHERE id = ?"
+            "SELECT * FROM mcp_server_configs WHERE id = ?",
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -454,20 +600,35 @@ mod tests {
         let provider = ProviderConfigRow {
             id: "ollama".to_string(),
             provider_type: "local".to_string(),
-            base_url: None, default_model: None, enabled: 1, config_json: None, created_at: String::new(),
+            base_url: None,
+            default_model: None,
+            enabled: 1,
+            config_json: None,
+            created_at: String::new(),
         };
         db.upsert_provider(&provider).await.unwrap();
         let session = SessionRow {
-            id: "sess-1".to_string(), title: None, provider_id: "ollama".to_string(),
-            model: "llama3".to_string(), system_prompt: None, created_at: String::new(), updated_at: String::new(),
+            id: "sess-1".to_string(),
+            title: None,
+            provider_id: "ollama".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: None,
+            created_at: String::new(),
+            updated_at: String::new(),
             team_id: None,
         };
         db.create_session(&session).await.unwrap();
 
         let msg = MessageRow {
-            id: "msg-1".to_string(), session_id: "sess-1".to_string(),
-            role: "user".to_string(), content: "Hello".to_string(), token_count: Some(5), created_at: String::new(),
-            agent_id: None, agent_name: None, agent_color: None,
+            id: "msg-1".to_string(),
+            session_id: "sess-1".to_string(),
+            role: "user".to_string(),
+            content: "Hello".to_string(),
+            token_count: Some(5),
+            created_at: String::new(),
+            agent_id: None,
+            agent_name: None,
+            agent_color: None,
         };
         db.insert_message(&msg).await.unwrap();
 
@@ -480,20 +641,36 @@ mod tests {
     async fn test_cascade_delete() {
         let db = setup_db().await;
         let provider = ProviderConfigRow {
-            id: "ollama".to_string(), provider_type: "local".to_string(),
-            base_url: None, default_model: None, enabled: 1, config_json: None, created_at: String::new(),
+            id: "ollama".to_string(),
+            provider_type: "local".to_string(),
+            base_url: None,
+            default_model: None,
+            enabled: 1,
+            config_json: None,
+            created_at: String::new(),
         };
         db.upsert_provider(&provider).await.unwrap();
         let session = SessionRow {
-            id: "sess-1".to_string(), title: None, provider_id: "ollama".to_string(),
-            model: "llama3".to_string(), system_prompt: None, created_at: String::new(), updated_at: String::new(),
+            id: "sess-1".to_string(),
+            title: None,
+            provider_id: "ollama".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: None,
+            created_at: String::new(),
+            updated_at: String::new(),
             team_id: None,
         };
         db.create_session(&session).await.unwrap();
         let msg = MessageRow {
-            id: "msg-1".to_string(), session_id: "sess-1".to_string(),
-            role: "user".to_string(), content: "Hi".to_string(), token_count: None, created_at: String::new(),
-            agent_id: None, agent_name: None, agent_color: None,
+            id: "msg-1".to_string(),
+            session_id: "sess-1".to_string(),
+            role: "user".to_string(),
+            content: "Hi".to_string(),
+            token_count: None,
+            created_at: String::new(),
+            agent_id: None,
+            agent_name: None,
+            agent_color: None,
         };
         db.insert_message(&msg).await.unwrap();
 
@@ -688,8 +865,12 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_add_and_list() {
         let db = setup_db().await;
-        db.add_recent_workspace("/home/user/project-a", "Project A").await.unwrap();
-        db.add_recent_workspace("/home/user/project-b", "Project B").await.unwrap();
+        db.add_recent_workspace("/home/user/project-a", "Project A")
+            .await
+            .unwrap();
+        db.add_recent_workspace("/home/user/project-b", "Project B")
+            .await
+            .unwrap();
 
         let workspaces = db.list_recent_workspaces(10).await.unwrap();
         assert_eq!(workspaces.len(), 2);
@@ -701,8 +882,12 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_upsert() {
         let db = setup_db().await;
-        db.add_recent_workspace("/home/user/project", "Old Name").await.unwrap();
-        db.add_recent_workspace("/home/user/project", "New Name").await.unwrap();
+        db.add_recent_workspace("/home/user/project", "Old Name")
+            .await
+            .unwrap();
+        db.add_recent_workspace("/home/user/project", "New Name")
+            .await
+            .unwrap();
 
         let workspaces = db.list_recent_workspaces(10).await.unwrap();
         assert_eq!(workspaces.len(), 1);
@@ -712,8 +897,12 @@ mod tests {
     #[tokio::test]
     async fn test_workspace_remove() {
         let db = setup_db().await;
-        db.add_recent_workspace("/home/user/project", "Project").await.unwrap();
-        db.remove_recent_workspace("/home/user/project").await.unwrap();
+        db.add_recent_workspace("/home/user/project", "Project")
+            .await
+            .unwrap();
+        db.remove_recent_workspace("/home/user/project")
+            .await
+            .unwrap();
 
         let workspaces = db.list_recent_workspaces(10).await.unwrap();
         assert!(workspaces.is_empty());
@@ -723,7 +912,9 @@ mod tests {
     async fn test_workspace_list_limit() {
         let db = setup_db().await;
         for i in 0..5 {
-            db.add_recent_workspace(&format!("/path/{}", i), &format!("Project {}", i)).await.unwrap();
+            db.add_recent_workspace(&format!("/path/{}", i), &format!("Project {}", i))
+                .await
+                .unwrap();
         }
 
         let workspaces = db.list_recent_workspaces(3).await.unwrap();
@@ -740,7 +931,9 @@ mod tests {
             workspace_path: None,
             name: "filesystem".to_string(),
             command: "npx".to_string(),
-            args_json: Some(r#"["-y","@modelcontextprotocol/server-filesystem","/tmp"]"#.to_string()),
+            args_json: Some(
+                r#"["-y","@modelcontextprotocol/server-filesystem","/tmp"]"#.to_string(),
+            ),
             env_json: None,
             enabled: 1,
             created_at: String::new(),
@@ -842,7 +1035,10 @@ mod tests {
         db.upsert_mcp_server(&ws).await.unwrap();
 
         // Filter by workspace should return both global and workspace-specific
-        let servers = db.list_mcp_servers(Some("/home/user/project")).await.unwrap();
+        let servers = db
+            .list_mcp_servers(Some("/home/user/project"))
+            .await
+            .unwrap();
         assert_eq!(servers.len(), 2);
 
         // Filter by different workspace should return only global
@@ -855,9 +1051,14 @@ mod tests {
     async fn test_message_with_agent_fields() {
         let db = setup_db_with_provider().await;
         let session = SessionRow {
-            id: "sess-1".to_string(), title: None, provider_id: "ollama".to_string(),
-            model: "llama3".to_string(), system_prompt: None, created_at: String::new(),
-            updated_at: String::new(), team_id: None,
+            id: "sess-1".to_string(),
+            title: None,
+            provider_id: "ollama".to_string(),
+            model: "llama3".to_string(),
+            system_prompt: None,
+            created_at: String::new(),
+            updated_at: String::new(),
+            team_id: None,
         };
         db.create_session(&session).await.unwrap();
 

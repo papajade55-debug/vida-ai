@@ -83,7 +83,10 @@ impl Default for MockSecretStore {
 
 impl SecretStore for MockSecretStore {
     fn store(&self, key: &str, value: &str) -> Result<(), SecurityError> {
-        self.secrets.lock().unwrap().insert(key.to_string(), value.to_string());
+        self.secrets
+            .lock()
+            .unwrap()
+            .insert(key.to_string(), value.to_string());
         Ok(())
     }
 

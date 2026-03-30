@@ -9,7 +9,7 @@ pub async fn list_providers(
     engine: State<'_, Arc<RwLock<VidaEngine>>>,
 ) -> Result<Vec<ProviderInfo>, String> {
     let e = engine.read().await;
-    Ok(e.list_providers())
+    Ok(e.list_providers().await)
 }
 
 #[tauri::command]
