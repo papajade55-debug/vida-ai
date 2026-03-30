@@ -882,59 +882,79 @@ impl VidaEngine {
                 &self.provider_api_key("google"),
                 default_model.unwrap_or(DEFAULT_GOOGLE_MODEL),
             )),
-            "groq" => Arc::new(OpenAIProvider::new(
+            "groq" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_GROQ_URL),
                 &self.provider_api_key("groq"),
                 default_model.unwrap_or(DEFAULT_GROQ_MODEL),
+                "groq",
+                "Groq",
             )),
-            "mistral" => Arc::new(OpenAIProvider::new(
+            "mistral" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_MISTRAL_URL),
                 &self.provider_api_key("mistral"),
                 default_model.unwrap_or(DEFAULT_MISTRAL_MODEL),
+                "mistral",
+                "Mistral",
             )),
-            "deepseek" => Arc::new(OpenAIProvider::new(
+            "deepseek" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_DEEPSEEK_URL),
                 &self.provider_api_key("deepseek"),
                 default_model.unwrap_or(DEFAULT_DEEPSEEK_MODEL),
+                "deepseek",
+                "DeepSeek",
             )),
-            "cerebras" => Arc::new(OpenAIProvider::new(
+            "cerebras" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_CEREBRAS_URL),
                 &self.provider_api_key("cerebras"),
                 default_model.unwrap_or(DEFAULT_CEREBRAS_MODEL),
+                "cerebras",
+                "Cerebras",
             )),
-            "nvidia" => Arc::new(OpenAIProvider::new(
+            "nvidia" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_NVIDIA_URL),
                 &self.provider_api_key("nvidia"),
                 default_model.unwrap_or(DEFAULT_NVIDIA_MODEL),
+                "nvidia",
+                "NVIDIA NIM",
             )),
-            "sambanova" => Arc::new(OpenAIProvider::new(
+            "sambanova" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_SAMBANOVA_URL),
                 &self.provider_api_key("sambanova"),
                 default_model.unwrap_or(DEFAULT_SAMBANOVA_MODEL),
+                "sambanova",
+                "SambaNova",
             )),
-            "openrouter" => Arc::new(OpenAIProvider::new(
+            "openrouter" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_OPENROUTER_URL),
                 &self.provider_api_key("openrouter"),
                 default_model.unwrap_or(DEFAULT_OPENROUTER_MODEL),
+                "openrouter",
+                "OpenRouter",
             )),
-            "zhipuai" => Arc::new(OpenAIProvider::new(
+            "zhipuai" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_ZHIPUAI_URL),
                 &self.provider_api_key("zhipuai"),
                 default_model.unwrap_or(DEFAULT_ZHIPUAI_MODEL),
+                "zhipuai",
+                "ZhipuAI",
             )),
-            "dashscope" => Arc::new(OpenAIProvider::new(
+            "dashscope" => Arc::new(OpenAIProvider::with_name(
                 base_url.unwrap_or(DEFAULT_DASHSCOPE_URL),
                 &self.provider_api_key("dashscope"),
                 default_model.unwrap_or(DEFAULT_DASHSCOPE_MODEL),
+                "dashscope",
+                "DashScope",
             )),
             _ if kind.contains("ollama") => {
                 Arc::new(OllamaProvider::new(base_url.unwrap_or(DEFAULT_OLLAMA_URL)))
             }
             _ if kind.contains("openai") || kind.contains("cloud") => {
-                Arc::new(OpenAIProvider::new(
+                Arc::new(OpenAIProvider::with_name(
                     base_url.unwrap_or(DEFAULT_OPENAI_URL),
                     &self.provider_api_key(&config.id),
                     default_model.unwrap_or(DEFAULT_OPENAI_MODEL),
+                    &config.id,
+                    &config.id,
                 ))
             }
             _ if kind.contains("anthropic") => Arc::new(AnthropicProvider::new(

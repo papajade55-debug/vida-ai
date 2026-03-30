@@ -10,17 +10,26 @@ pub struct OpenAIProvider {
     base_url: String,
     api_key: String,
     default_model: String,
+    provider_id: String,
+    display_name: String,
 }
 
 impl OpenAIProvider {
     /// Create a new OpenAI-compatible provider.
     /// `base_url` can be any OpenAI-compatible endpoint (OpenAI, Groq, Mistral, Together, etc.)
     pub fn new(base_url: &str, api_key: &str, default_model: &str) -> Self {
+        Self::with_name(base_url, api_key, default_model, "openai", "OpenAI")
+    }
+
+    /// Create a new OpenAI-compatible provider with custom identifier and display name.
+    pub fn with_name(base_url: &str, api_key: &str, default_model: &str, id: &str, display_name: &str) -> Self {
         Self {
             client: Client::new(),
             base_url: base_url.trim_end_matches('/').to_string(),
             api_key: api_key.to_string(),
             default_model: default_model.to_string(),
+            provider_id: id.to_string(),
+            display_name: display_name.to_string(),
         }
     }
 }
@@ -552,8 +561,8 @@ impl LLMProvider for OpenAIProvider {
 
     fn info(&self) -> ProviderInfo {
         ProviderInfo {
-            id: "openai".to_string(),
-            display_name: "OpenAI".to_string(),
+            id: self.provider_id.clone(),
+            display_name: self.display_name.clone(),
             provider_type: ProviderType::Cloud,
             models: vec![],
         }
