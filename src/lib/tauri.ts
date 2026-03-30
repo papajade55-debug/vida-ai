@@ -207,8 +207,8 @@ export const api = {
     invoke<CompletionResponse>("send_vision_message", { sessionId, imageBase64, prompt }),
 
   // Teams
-  createTeam: (name: string, members: [string, string][]) =>
-    invoke<TeamRow>("create_team", { name, members }),
+  createTeam: (name: string, members: [string, string][], description?: string, systemPrompt?: string) =>
+    invoke<TeamRow>("create_team", { name, members, description: description ?? null, systemPrompt: systemPrompt ?? null }),
   listTeams: () => invoke<TeamRow[]>("list_teams"),
   getTeam: (teamId: string) =>
     invoke<[TeamRow, TeamMemberRow[]]>("get_team", { teamId }),

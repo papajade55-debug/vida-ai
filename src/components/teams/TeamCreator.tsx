@@ -60,7 +60,12 @@ export function TeamCreator({ open, onClose }: TeamCreatorProps) {
   const handleCreate = async () => {
     if (!name.trim() || selectedEntries.length === 0) return;
     const members: [string, string][] = selectedEntries.map((e) => [e.providerId, e.model]);
-    await createTeam(name.trim(), members);
+    await createTeam(
+      name.trim(),
+      members,
+      description.trim() || undefined,
+      systemPrompt.trim() || undefined,
+    );
     setName("");
     setDescription("");
     setSystemPrompt("");

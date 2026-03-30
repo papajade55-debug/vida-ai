@@ -65,6 +65,10 @@ mod server {
     pub struct TeamCreateRequest {
         pub name: String,
         pub members: Vec<(String, String)>,
+        #[serde(default)]
+        pub description: Option<String>,
+        #[serde(default)]
+        pub system_prompt: Option<String>,
     }
 
     #[derive(Debug, Deserialize)]
@@ -901,7 +905,7 @@ mod server {
         authorize_remote_role(&actor, &[ActorRole::SuperAdmin, ActorRole::Architect])?;
         let engine = state.engine.read().await;
         let team = engine
-            .create_team(&req.name, req.members)
+            .create_team(&req.name, req.members, req.description, req.system_prompt)
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;
         Ok(Json(team))

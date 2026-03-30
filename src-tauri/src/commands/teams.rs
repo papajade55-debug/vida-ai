@@ -14,6 +14,8 @@ pub async fn create_team(
     permissions: State<'_, PermissionState>,
     name: String,
     members: Vec<(String, String)>,
+    description: Option<String>,
+    system_prompt: Option<String>,
 ) -> Result<TeamRow, String> {
     require_access(
         &app,
@@ -27,7 +29,7 @@ pub async fn create_team(
     .await?;
 
     let e = engine.read().await;
-    e.create_team(&name, members)
+    e.create_team(&name, members, description, system_prompt)
         .await
         .map_err(|e: VidaError| e.to_string())
 }

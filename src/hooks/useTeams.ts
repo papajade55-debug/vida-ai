@@ -13,9 +13,9 @@ export function useTeams() {
   }, [setTeams]);
 
   const createTeam = useCallback(
-    async (name: string, members: [string, string][]) => {
+    async (name: string, members: [string, string][], description?: string, systemPrompt?: string) => {
       try {
-        const team = await api.createTeam(name, members);
+        const team = await api.createTeam(name, members, description, systemPrompt);
         addTeam(team);
         return team;
       } catch (e) {

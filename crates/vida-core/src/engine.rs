@@ -1047,6 +1047,8 @@ impl VidaEngine {
         &self,
         name: &str,
         members: Vec<(String, String)>,
+        description: Option<String>,
+        system_prompt: Option<String>,
     ) -> Result<TeamRow, VidaError> {
         if members.is_empty() {
             return Err(VidaError::Config(
@@ -1058,8 +1060,8 @@ impl VidaEngine {
             id: Uuid::new_v4().to_string(),
             name: name.to_string(),
             mode: "parallel".to_string(),
-            description: None,
-            system_prompt: None,
+            description,
+            system_prompt,
             created_at: String::new(),
         };
         self.db.create_team(&team).await?;
@@ -1924,6 +1926,8 @@ mod tests {
             .create_team(
                 "My Team",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -1962,6 +1966,8 @@ mod tests {
                     ("mock".to_string(), "mock-model".to_string()),
                     ("mock2".to_string(), "mock-model-2".to_string()),
                 ],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -1984,6 +1990,8 @@ mod tests {
                     ("mock".to_string(), "mock-model".to_string()),
                     ("mock".to_string(), "mock-model-2".to_string()),
                 ],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2003,6 +2011,8 @@ mod tests {
             .create_team(
                 "Owner Team",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2022,6 +2032,8 @@ mod tests {
             .create_team(
                 "Team A",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2029,6 +2041,8 @@ mod tests {
             .create_team(
                 "Team B",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2044,6 +2058,8 @@ mod tests {
             .create_team(
                 "Delete Me",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2060,6 +2076,8 @@ mod tests {
             .create_team(
                 "Session Team",
                 vec![("mock".to_string(), "mock-model".to_string())],
+                None,
+                None,
             )
             .await
             .unwrap();
@@ -2097,6 +2115,8 @@ mod tests {
                     ("mock".to_string(), "mock-model".to_string()),
                     ("mock2".to_string(), "mock-model".to_string()),
                 ],
+                None,
+                None,
             )
             .await
             .unwrap();
