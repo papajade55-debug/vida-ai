@@ -4,9 +4,10 @@ interface TeamMemberBadgeProps {
   name: string;
   color: string;
   role?: TeamRole | null;
+  department?: string | null;
 }
 
-export function TeamMemberBadge({ name, color, role }: TeamMemberBadgeProps) {
+export function TeamMemberBadge({ name, color, role, department }: TeamMemberBadgeProps) {
   return (
     <span
       className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs"
@@ -21,6 +22,11 @@ export function TeamMemberBadge({ name, color, role }: TeamMemberBadgeProps) {
         style={{ backgroundColor: color }}
       />
       {name}
+      {department && (
+        <span className="opacity-60 italic">
+          {department}
+        </span>
+      )}
       {role && (
         <span className="uppercase tracking-wide opacity-70">
           {role}

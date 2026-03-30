@@ -28,6 +28,11 @@ export function TeamItem({ team, members, active, onClick, onDelete }: TeamItemP
           </button>
         )}
       </div>
+      {team.description && (
+        <p className="text-xs mt-0.5 truncate" style={{ color: "var(--text-secondary)" }}>
+          {team.description}
+        </p>
+      )}
       {members.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1.5">
           {members.map((m) => (
@@ -36,6 +41,7 @@ export function TeamItem({ team, members, active, onClick, onDelete }: TeamItemP
               name={m.display_name || m.model}
               color={m.color}
               role={m.role}
+              department={m.department}
             />
           ))}
         </div>

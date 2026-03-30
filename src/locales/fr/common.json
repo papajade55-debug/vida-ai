@@ -2,31 +2,130 @@
   "app": {
     "name": "Vida AI",
     "loading": "Chargement...",
-    "error": "Une erreur est survenue"
+    "error": "Une erreur est survenue",
+    "welcome": "Bienvenue dans Vida AI",
+    "createChat": "Créer un nouveau chat pour commencer"
   },
   "auth": {
     "enterPassword": "Entrez votre mot de passe",
     "unlock": "Déverrouiller",
     "wrongPassword": "Mot de passe incorrect",
-    "noPasswordSet": "Aucun mot de passe configuré"
+    "noPasswordSet": "Aucun mot de passe configuré",
+    "login": "Connexion",
+    "logout": "Déconnexion",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "createAccount": "Créer un compte",
+    "tooManyAttempts": "Trop de tentatives. Réessayez plus tard.",
+    "changePassword": "Changer le mot de passe"
   },
   "providers": {
     "title": "Fournisseurs",
     "noProviders": "Aucun fournisseur configuré",
     "addApiKey": "Ajouter une clé API",
+    "removeApiKey": "Supprimer la clé API",
     "healthy": "Connecté",
-    "unhealthy": "Indisponible"
+    "unhealthy": "Indisponible",
+    "unknown": "Non vérifié",
+    "local": "local",
+    "cloud": "cloud",
+    "configuredProviders": "Fournisseurs configurés",
+    "models": "Modèles"
   },
   "chat": {
     "placeholder": "Tapez un message...",
     "send": "Envoyer",
-    "newSession": "Nouvelle conversation"
+    "newSession": "Nouvelle conversation",
+    "newChat": "Nouveau Chat",
+    "deleteSession": "Supprimer la conversation",
+    "noMessages": "Aucun message",
+    "dropFiles": "Déposez des fichiers ici"
+  },
+  "teams": {
+    "title": "Équipes",
+    "create": "Créer une équipe",
+    "name": "Nom de l'équipe",
+    "description": "Description (optionnel)",
+    "systemPrompt": "Prompt système (optionnel)",
+    "systemPromptPlaceholder": "Instructions partagées par tous les membres...",
+    "selectModels": "Sélectionner les modèles",
+    "members": "Membres de l'équipe",
+    "delete": "Supprimer l'équipe",
+    "noTeams": "Aucune équipe créée",
+    "roles": {
+      "owner": "Propriétaire",
+      "admin": "Admin",
+      "member": "Membre",
+      "viewer": "Observateur"
+    },
+    "departments": {
+      "engineering": "Ingénierie",
+      "research": "Recherche",
+      "infrastructure": "Infrastructure",
+      "security": "Sécurité"
+    }
+  },
+  "mcp": {
+    "title": "Serveurs MCP",
+    "addServer": "Ajouter un serveur",
+    "editServer": "Modifier le serveur",
+    "serverName": "Nom du serveur",
+    "command": "Commande",
+    "arguments": "Arguments",
+    "envVars": "Variables d'environnement",
+    "start": "Démarrer",
+    "stop": "Arrêter",
+    "running": "En cours",
+    "stopped": "Arrêté",
+    "tools": "outils",
+    "noServers": "Aucun serveur MCP configuré"
+  },
+  "workspace": {
+    "title": "Espace de travail",
+    "open": "Ouvrir",
+    "create": "Créer",
+    "recent": "Espaces récents",
+    "permissions": "Autorisations",
+    "permissionMode": "Mode d'autorisation",
+    "yolo": "Yolo (tout autoriser)",
+    "ask": "Demander (confirmation requise)",
+    "sandbox": "Sandbox (bac à sable)"
+  },
+  "remote": {
+    "title": "Accès distant",
+    "enable": "Activer",
+    "disable": "Désactiver",
+    "token": "Jeton d'accès",
+    "regenerateToken": "Régénérer le jeton",
+    "port": "Port",
+    "status": "Statut"
   },
   "settings": {
     "title": "Paramètres",
+    "general": "Général",
+    "workspace": "Espace de travail",
+    "security": "Sécurité",
+    "providers": "Fournisseurs",
+    "mcp": "MCP",
     "language": "Langue",
     "theme": "Thème",
+    "dark": "Sombre",
+    "light": "Clair",
     "changePassword": "Changer le mot de passe",
     "removePassword": "Supprimer le mot de passe"
+  },
+  "permissions": {
+    "required": "Autorisation requise",
+    "allow": "Autoriser",
+    "deny": "Refuser",
+    "action": "Action",
+    "fileRead": "Lecture de fichier",
+    "fileWrite": "Écriture de fichier",
+    "shellExecute": "Exécution shell",
+    "networkAccess": "Accès réseau"
+  },
+  "agents": {
+    "title": "Agents",
+    "noAgents": "Aucun agent disponible"
   }
 }
