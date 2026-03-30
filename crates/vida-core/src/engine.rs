@@ -41,6 +41,24 @@ const DEFAULT_ANTHROPIC_URL: &str = "https://api.anthropic.com";
 const DEFAULT_ANTHROPIC_MODEL: &str = "claude-3-5-haiku-20241022";
 const DEFAULT_GOOGLE_URL: &str = "https://generativelanguage.googleapis.com";
 const DEFAULT_GOOGLE_MODEL: &str = "gemini-2.0-flash";
+const DEFAULT_GROQ_URL: &str = "https://api.groq.com/openai";
+const DEFAULT_GROQ_MODEL: &str = "llama-3.3-70b-versatile";
+const DEFAULT_MISTRAL_URL: &str = "https://api.mistral.ai";
+const DEFAULT_MISTRAL_MODEL: &str = "mistral-large-latest";
+const DEFAULT_DEEPSEEK_URL: &str = "https://api.deepseek.com";
+const DEFAULT_DEEPSEEK_MODEL: &str = "deepseek-chat";
+const DEFAULT_CEREBRAS_URL: &str = "https://api.cerebras.ai";
+const DEFAULT_CEREBRAS_MODEL: &str = "qwen-3-235b";
+const DEFAULT_NVIDIA_URL: &str = "https://integrate.api.nvidia.com";
+const DEFAULT_NVIDIA_MODEL: &str = "meta/llama-4-maverick-17b-128e-instruct";
+const DEFAULT_SAMBANOVA_URL: &str = "https://api.sambanova.ai";
+const DEFAULT_SAMBANOVA_MODEL: &str = "Meta-Llama-3.3-70B-Instruct";
+const DEFAULT_OPENROUTER_URL: &str = "https://openrouter.ai/api";
+const DEFAULT_OPENROUTER_MODEL: &str = "google/gemini-2.5-flash-preview";
+const DEFAULT_ZHIPUAI_URL: &str = "https://open.bigmodel.cn/api/paas";
+const DEFAULT_ZHIPUAI_MODEL: &str = "glm-4-plus";
+const DEFAULT_DASHSCOPE_URL: &str = "https://dashscope.aliyuncs.com/compatible-mode";
+const DEFAULT_DASHSCOPE_MODEL: &str = "qwen-max";
 const TEAM_ROLE_OWNER: &str = "owner";
 const TEAM_ROLE_ADMIN: &str = "admin";
 const TEAM_ROLE_MEMBER: &str = "member";
@@ -811,6 +829,16 @@ impl VidaEngine {
                 Some(DEFAULT_GOOGLE_MODEL),
             )
             .await?;
+        // OpenAI-compatible cloud providers
+        self.db.ensure_provider_config("groq", "cloud", Some(DEFAULT_GROQ_URL), Some(DEFAULT_GROQ_MODEL)).await?;
+        self.db.ensure_provider_config("mistral", "cloud", Some(DEFAULT_MISTRAL_URL), Some(DEFAULT_MISTRAL_MODEL)).await?;
+        self.db.ensure_provider_config("deepseek", "cloud", Some(DEFAULT_DEEPSEEK_URL), Some(DEFAULT_DEEPSEEK_MODEL)).await?;
+        self.db.ensure_provider_config("cerebras", "cloud", Some(DEFAULT_CEREBRAS_URL), Some(DEFAULT_CEREBRAS_MODEL)).await?;
+        self.db.ensure_provider_config("nvidia", "cloud", Some(DEFAULT_NVIDIA_URL), Some(DEFAULT_NVIDIA_MODEL)).await?;
+        self.db.ensure_provider_config("sambanova", "cloud", Some(DEFAULT_SAMBANOVA_URL), Some(DEFAULT_SAMBANOVA_MODEL)).await?;
+        self.db.ensure_provider_config("openrouter", "cloud", Some(DEFAULT_OPENROUTER_URL), Some(DEFAULT_OPENROUTER_MODEL)).await?;
+        self.db.ensure_provider_config("zhipuai", "cloud", Some(DEFAULT_ZHIPUAI_URL), Some(DEFAULT_ZHIPUAI_MODEL)).await?;
+        self.db.ensure_provider_config("dashscope", "cloud", Some(DEFAULT_DASHSCOPE_URL), Some(DEFAULT_DASHSCOPE_MODEL)).await?;
         Ok(())
     }
 
@@ -854,6 +882,51 @@ impl VidaEngine {
                 &self.provider_api_key("google"),
                 default_model.unwrap_or(DEFAULT_GOOGLE_MODEL),
             )),
+            "groq" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_GROQ_URL),
+                &self.provider_api_key("groq"),
+                default_model.unwrap_or(DEFAULT_GROQ_MODEL),
+            )),
+            "mistral" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_MISTRAL_URL),
+                &self.provider_api_key("mistral"),
+                default_model.unwrap_or(DEFAULT_MISTRAL_MODEL),
+            )),
+            "deepseek" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_DEEPSEEK_URL),
+                &self.provider_api_key("deepseek"),
+                default_model.unwrap_or(DEFAULT_DEEPSEEK_MODEL),
+            )),
+            "cerebras" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_CEREBRAS_URL),
+                &self.provider_api_key("cerebras"),
+                default_model.unwrap_or(DEFAULT_CEREBRAS_MODEL),
+            )),
+            "nvidia" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_NVIDIA_URL),
+                &self.provider_api_key("nvidia"),
+                default_model.unwrap_or(DEFAULT_NVIDIA_MODEL),
+            )),
+            "sambanova" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_SAMBANOVA_URL),
+                &self.provider_api_key("sambanova"),
+                default_model.unwrap_or(DEFAULT_SAMBANOVA_MODEL),
+            )),
+            "openrouter" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_OPENROUTER_URL),
+                &self.provider_api_key("openrouter"),
+                default_model.unwrap_or(DEFAULT_OPENROUTER_MODEL),
+            )),
+            "zhipuai" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_ZHIPUAI_URL),
+                &self.provider_api_key("zhipuai"),
+                default_model.unwrap_or(DEFAULT_ZHIPUAI_MODEL),
+            )),
+            "dashscope" => Arc::new(OpenAIProvider::new(
+                base_url.unwrap_or(DEFAULT_DASHSCOPE_URL),
+                &self.provider_api_key("dashscope"),
+                default_model.unwrap_or(DEFAULT_DASHSCOPE_MODEL),
+            )),
             _ if kind.contains("ollama") => {
                 Arc::new(OllamaProvider::new(base_url.unwrap_or(DEFAULT_OLLAMA_URL)))
             }
@@ -883,9 +956,35 @@ impl VidaEngine {
     }
 
     fn provider_api_key(&self, provider_id: &str) -> String {
-        self.secrets
-            .get(&format!("{}-api-key", provider_id))
-            .unwrap_or_default()
+        // 1. Try keychain first
+        if let Ok(key) = self.secrets.get(&format!("{}-api-key", provider_id)) {
+            if !key.is_empty() {
+                return key;
+            }
+        }
+        // 2. Fallback to environment variable: {PROVIDER_ID}_API_KEY
+        let env_var = format!("{}_API_KEY", provider_id.to_uppercase());
+        if let Ok(key) = std::env::var(&env_var) {
+            if !key.is_empty() {
+                return key;
+            }
+        }
+        // 3. Special mappings for common env var names
+        let alt_env = match provider_id {
+            "google" => Some("GEMINI_API_KEY"),
+            "nvidia" => Some("NVIDIA_API_KEY"),
+            "dashscope" => Some("DASHSCOPE_API_KEY"),
+            "zhipuai" => Some("ZHIPUAI_API_KEY"),
+            _ => None,
+        };
+        if let Some(var) = alt_env {
+            if let Ok(key) = std::env::var(var) {
+                if !key.is_empty() {
+                    return key;
+                }
+            }
+        }
+        String::new()
     }
 
     async fn provider_default_models(&self) -> std::collections::HashMap<String, String> {
