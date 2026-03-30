@@ -1058,6 +1058,8 @@ impl VidaEngine {
             id: Uuid::new_v4().to_string(),
             name: name.to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         self.db.create_team(&team).await?;
@@ -1078,6 +1080,8 @@ impl VidaEngine {
                 display_name: Some(display_name),
                 color: color.to_string(),
                 role: Some(default_team_role(i).to_string()),
+                department: None,
+                system_prompt: None,
                 created_at: String::new(),
             };
             self.db.add_team_member(&member).await?;
@@ -1407,6 +1411,12 @@ impl VidaEngine {
             .as_ref()
             .ok_or_else(|| VidaError::Config("Session has no team_id".to_string()))?;
 
+        let team = self
+            .db
+            .get_team(team_id)
+            .await?
+            .ok_or_else(|| VidaError::Config(format!("Team not found: {team_id}")))?;
+
         let members: Vec<_> = self
             .db
             .get_team_members(team_id)
@@ -1439,6 +1449,7 @@ impl VidaEngine {
 
         // Build chat messages from history (shared across agents)
         let mut chat_messages = Vec::new();
+        // 1. Session-level system prompt
         if let Some(ref prompt) = session.system_prompt {
             chat_messages.push(ChatMessage {
                 role: ChatRole::System,
@@ -1446,6 +1457,17 @@ impl VidaEngine {
                 tool_call_id: None,
                 name: None,
             });
+        }
+        // 2. Team-level system prompt (shared context for all agents)
+        if let Some(ref team_prompt) = team.system_prompt {
+            if !team_prompt.is_empty() {
+                chat_messages.push(ChatMessage {
+                    role: ChatRole::System,
+                    content: team_prompt.clone(),
+                    tool_call_id: None,
+                    name: None,
+                });
+            }
         }
         for msg in &history {
             let role = match msg.role.as_str() {
@@ -1497,7 +1519,18 @@ impl VidaEngine {
                 .unwrap_or_else(|| format!("{}/{}", member.provider_id, member.model));
             let agent_color = member.color.clone();
             let model = member.model.clone();
-            let messages_clone = chat_messages.clone();
+            // 3. Per-agent system prompt (personality/role)
+            let mut messages_clone = chat_messages.clone();
+            if let Some(ref member_prompt) = member.system_prompt {
+                if !member_prompt.is_empty() {
+                    messages_clone.push(ChatMessage {
+                        role: ChatRole::System,
+                        content: member_prompt.clone(),
+                        tool_call_id: None,
+                        name: None,
+                    });
+                }
+            }
             let tx_clone = tx.clone();
             let done_count_clone = done_count.clone();
             let total = total_members;

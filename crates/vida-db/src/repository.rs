@@ -704,6 +704,8 @@ mod tests {
             id: "team-1".to_string(),
             name: "Test Team".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team).await.unwrap();
@@ -722,12 +724,16 @@ mod tests {
             id: "team-1".to_string(),
             name: "Alpha".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         let team2 = TeamRow {
             id: "team-2".to_string(),
             name: "Beta".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team1).await.unwrap();
@@ -744,6 +750,8 @@ mod tests {
             id: "team-1".to_string(),
             name: "Delete Me".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team).await.unwrap();
@@ -760,6 +768,8 @@ mod tests {
             id: "team-1".to_string(),
             name: "Test Team".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team).await.unwrap();
@@ -772,6 +782,8 @@ mod tests {
             display_name: Some("Agent Alpha".to_string()),
             color: "#6366f1".to_string(),
             role: None,
+            department: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.add_team_member(&member).await.unwrap();
@@ -790,6 +802,8 @@ mod tests {
             display_name: None,
             color: "#ec4899".to_string(),
             role: Some("reviewer".to_string()),
+            department: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.add_team_member(&member2).await.unwrap();
@@ -811,6 +825,8 @@ mod tests {
             id: "team-1".to_string(),
             name: "Cascade Team".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team).await.unwrap();
@@ -823,6 +839,8 @@ mod tests {
             display_name: None,
             color: "#6366f1".to_string(),
             role: None,
+            department: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.add_team_member(&member).await.unwrap();
@@ -840,6 +858,8 @@ mod tests {
             id: "team-1".to_string(),
             name: "Team Session".to_string(),
             mode: "parallel".to_string(),
+            description: None,
+            system_prompt: None,
             created_at: String::new(),
         };
         db.create_team(&team).await.unwrap();

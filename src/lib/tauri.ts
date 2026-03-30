@@ -72,6 +72,8 @@ export interface TeamRow {
   id: string;
   name: string;
   mode: string;
+  description: string | null;
+  system_prompt: string | null;
   created_at: string;
 }
 
@@ -83,6 +85,8 @@ export interface TeamMemberRow {
   display_name: string | null;
   color: string;
   role: TeamRole | null;
+  department: string | null;
+  system_prompt: string | null;
   created_at: string;
 }
 

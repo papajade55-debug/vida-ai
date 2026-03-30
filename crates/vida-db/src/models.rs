@@ -41,6 +41,8 @@ pub struct TeamRow {
     pub id: String,
     pub name: String,
     pub mode: String,
+    pub description: Option<String>,
+    pub system_prompt: Option<String>,
     pub created_at: String,
 }
 
@@ -53,6 +55,8 @@ pub struct TeamMemberRow {
     pub display_name: Option<String>,
     pub color: String,
     pub role: Option<String>,
+    pub department: Option<String>,
+    pub system_prompt: Option<String>,
     pub created_at: String,
 }
 
