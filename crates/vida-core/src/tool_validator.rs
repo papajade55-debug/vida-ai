@@ -35,7 +35,7 @@ fn validate_against_schema(value: &Value, schema: &Value) -> Result<(), String> 
             "array" => validate_array(value, schema)?,
             "string" if !value.is_string() => return Err("expected string".to_string()),
             "number" if !value.is_number() => return Err("expected number".to_string()),
-            "integer" if !value.as_i64().is_some() && !value.as_u64().is_some() => {
+            "integer" if value.as_i64().is_none() && value.as_u64().is_none() => {
                 return Err("expected integer".to_string())
             }
             "boolean" if !value.is_boolean() => return Err("expected boolean".to_string()),

@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
@@ -643,13 +642,13 @@ impl VidaEngine {
                     "Too many login attempts. Try again later.".to_string(),
                 ));
             } else {
-                self.login_blocked_until.remove(&username.to_string());
+                self.login_blocked_until.remove(username);
             }
         }
 
         match self.authenticate_user(username, password).await {
             Ok(session) => {
-                self.login_attempts.remove(&username.to_string());
+                self.login_attempts.remove(username);
                 self.current_actor = Some(session.clone());
                 Ok(session)
             }
@@ -665,7 +664,7 @@ impl VidaEngine {
                             username.to_string(),
                             now + std::time::Duration::from_secs(LOGIN_BLOCK_SECS),
                         );
-                        self.login_attempts.remove(&username.to_string());
+                        self.login_attempts.remove(username);
                     }
                 }
                 Err(err)
@@ -1249,8 +1248,7 @@ impl VidaEngine {
         name: &str,
     ) -> Result<WorkspaceConfig, VidaError> {
         let workspace_path = std::path::Path::new(path);
-        let mut config = WorkspaceConfig::default();
-        config.name = name.to_string();
+        let config = WorkspaceConfig { name: name.to_string(), ..Default::default() };
 
         save_workspace_config(workspace_path, &config)?;
 

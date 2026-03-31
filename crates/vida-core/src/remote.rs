@@ -971,8 +971,7 @@ mod server {
                     let _ = socket
                         .send(ws::Message::Text(
                             serde_json::json!({"error": e.to_string()})
-                                .to_string()
-                                .into(),
+                                .to_string(),
                         ))
                         .await;
                     return;
@@ -1007,7 +1006,7 @@ mod server {
                 };
                 let is_done = matches!(event, StreamEvent::Done);
                 if socket
-                    .send(ws::Message::Text(json.to_string().into()))
+                    .send(ws::Message::Text(json.to_string()))
                     .await
                     .is_err()
                 {
