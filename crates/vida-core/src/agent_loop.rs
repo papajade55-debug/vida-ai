@@ -12,6 +12,7 @@ use crate::mcp::{McpManager, McpTool, McpToolResult, McpToolResultContent};
 use crate::tool_validator::validate_tool_call;
 
 const MAX_TOOL_ITERATIONS: usize = 8;
+#[allow(dead_code)]
 const TOOL_CALL_TIMEOUT_SECS: u64 = 30;
 const TOOL_CALL_START: &str = "<tool_call>";
 const TOOL_CALL_END: &str = "</tool_call>";
